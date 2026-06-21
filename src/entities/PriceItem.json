@@ -1,0 +1,48 @@
+{
+  "name": "PriceItem",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Назва послуги"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "Металокераміка",
+        "Безметалова кераміка",
+        "Знімне протезування",
+        "Ортодонтія",
+        "CAD/CAM",
+        "Інше"
+      ],
+      "description": "Категорія послуги"
+    },
+    "price_currency": {
+      "type": "string",
+      "enum": [
+        "UAH",
+        "USD",
+        "EUR"
+      ],
+      "default": "UAH",
+      "description": "Валюта ціни послуги"
+    },
+    "client_price": {
+      "type": "number",
+      "description": "Ціна для клієнта (у виборній валюті)"
+    },
+    "material_cost": {
+      "type": "number",
+      "description": "Витрати на матеріал (у тій же валюті, що й client_price)"
+    },
+    "technician_pay": {
+      "type": "number",
+      "description": "Оплата техніку (грн)"
+    }
+  },
+  "required": [
+    "name",
+    "client_price"
+  ]
+}

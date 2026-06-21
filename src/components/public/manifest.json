@@ -1,0 +1,8 @@
+{
+  "name": "IMI Lab",
+  "short_name": "IMI Lab",
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#336699",
+  "background_color": "#ffffff"
+}

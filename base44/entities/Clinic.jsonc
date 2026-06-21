@@ -1,0 +1,21 @@
+{
+  "name": "Clinic",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "\u041d\u0430\u0437\u0432\u0430 \u043a\u043b\u0456\u043d\u0456\u043a\u0438"
+    },
+    "address": {
+      "type": "string",
+      "description": "\u0410\u0434\u0440\u0435\u0441\u0430 \u043a\u043b\u0456\u043d\u0456\u043a\u0438"
+    },
+    "phone": {
+      "type": "string",
+      "description": "\u0422\u0435\u043b\u0435\u0444\u043e\u043d \u043a\u043b\u0456\u043d\u0456\u043a\u0438"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

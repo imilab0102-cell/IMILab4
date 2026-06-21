@@ -1,0 +1,27 @@
+{
+  "name": "OrderTemplate",
+  "type": "object",
+  "properties": {
+    "color_label": {
+      "type": "string",
+      "description": "Позначення кольору (К, КМ, КК, Вк, Нк, Фн, Мс, КВ)"
+    },
+    "color_title": {
+      "type": "string",
+      "description": "Назва кольору"
+    },
+    "color_hex": {
+      "type": "string",
+      "description": "HEX код кольору"
+    },
+    "linked_service_id": {
+      "type": "string",
+      "description": "ID привязаної послуги з PriceItem"
+    },
+    "linked_service_name": {
+      "type": "string",
+      "description": "Назва привязаної послуги"
+    }
+  },
+  "required": ["color_label"]
+}
