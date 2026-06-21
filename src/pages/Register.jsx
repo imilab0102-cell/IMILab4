@@ -9,7 +9,7 @@ import { supabase } from "../supabaseClient";
 import AuthLayout from "../components/AuthLayout";
 
 // Компоненти UI
-import { Button } from "../components/ui/Button";
+import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/Input";
 import { Label } from "../components/ui/Label";
 
