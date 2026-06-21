@@ -10,7 +10,7 @@ import AuthLayout from "../components/AuthLayout";
 
 // Компоненти UI
 import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/Input";
+import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/Label";
 
 export default function Register() {
