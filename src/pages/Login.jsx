@@ -47,7 +47,7 @@ export default function Login() {
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: 'com.imilab.app://auth/callback', // Повертає користувача на твій поточний сайт (наприклад, localhost:5174)
+          redirectTo: 'https://imi-lab4.vercel.app/auth/callback', // Повертає користувача на твій поточний сайт (наприклад, localhost:5174)
         },
       });
 
