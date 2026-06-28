@@ -1,28 +1,65 @@
 // src/lib/AuthContext.jsx
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { supabase } from '../supabaseClient';
+import { supabase } from '../supabaseClient'; // ← ПЕРЕКОНАЙТЕСЬ, ЩО ШЛЯХ ПРАВИЛЬНИЙ
 
 // 🔒 СПИСОК ДОЗВОЛЕНИХ EMAIL
 const ALLOWED_EMAILS = [
-  'imilab0102@gmail.com',
+  'your-email@gmail.com',
   'admin@example.com',
-  'user@company.com',
-  // Додайте сюди всі email, яким ви хочете дозволити доступ
+  // Додайте свої email
 ];
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [myTechnician, setMyTechnician] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(true);
   const [authError, setAuthError] = useState(null);
-  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // Публічні налаштування додатку
+  const [appPublicSettings] = useState({
+    id: "imilab-app",
+    public_settings: {
+      features: { 
+        finances: true, 
+        priceList: true, 
+        analytics: true,
+        adminPanel: true 
+      },
+      is_active: true
+    }
+  });
 
   // Перевірка, чи email дозволений
   const isEmailAllowed = (email) => {
     if (!email) return false;
     return ALLOWED_EMAILS.includes(email.toLowerCase());
+  };
+
+  // Функція створення профілю адміністратора
+  const buildAdminProfile = (supabaseUser) => {
+    if (!supabaseUser) return null;
+
+    return {
+      id: 1,
+      user_id: supabaseUser.id,
+      email: supabaseUser.email,
+      username: "IMI Lab Власник",
+      full_name: "IMI Lab Власник",
+      phone_number: "",
+      role: "admin", 
+      user_role: "admin",
+      type: "owner", 
+      is_admin: true,
+      isAdmin: true,
+      is_owner: true,
+      permissions: ["*"],
+      access_level: "superadmin"
+    };
   };
 
   const checkAppState = async () => {
@@ -37,28 +74,26 @@ export const AuthProvider = ({ children }) => {
       if (session && session.user) {
         const userEmail = session.user.email;
         
-        // Перевіряємо, чи email дозволений
         if (isEmailAllowed(userEmail)) {
           setIsAuthenticated(true);
-          setUser(session.user);
-          setIsAuthorized(true);
+          const profile = buildAdminProfile(session.user);
+          setUser(profile);
+          setMyTechnician(profile);
         } else {
-          // Користувач не в списку дозволених
+          console.log('❌ Доступ заборонено для:', userEmail);
           setIsAuthenticated(false);
           setUser(null);
-          setIsAuthorized(false);
+          setMyTechnician(null);
           setAuthError({
-            type: 'unauthorized',
+            type: 'user_not_registered',
             message: 'Ваш email не має доступу до цього додатку'
           });
-          
-          // Виходимо з системи
           await supabase.auth.signOut();
         }
       } else {
         setUser(null);
+        setMyTechnician(null);
         setIsAuthenticated(false);
-        setIsAuthorized(false);
       }
     } catch (error) {
       console.error('App state check failed:', error);
@@ -68,6 +103,8 @@ export const AuthProvider = ({ children }) => {
       });
     } finally {
       setIsLoadingAuth(false);
+      setIsLoadingPublicSettings(false);
+      setAuthChecked(true);
     }
   };
 
@@ -82,29 +119,34 @@ export const AuthProvider = ({ children }) => {
         
         if (isEmailAllowed(userEmail)) {
           setIsAuthenticated(true);
-          setUser(session.user);
-          setIsAuthorized(true);
+          const profile = buildAdminProfile(session.user);
+          setUser(profile);
+          setMyTechnician(profile);
           setAuthError(null);
         } else {
+          console.log('❌ Доступ заборонено для:', userEmail);
           setIsAuthenticated(false);
           setUser(null);
-          setIsAuthorized(false);
+          setMyTechnician(null);
           setAuthError({
-            type: 'unauthorized',
+            type: 'user_not_registered',
             message: 'Ваш email не має доступу до цього додатку'
           });
           await supabase.auth.signOut();
         }
       } else {
         setUser(null);
+        setMyTechnician(null);
         setIsAuthenticated(false);
-        setIsAuthorized(false);
       }
       setIsLoadingAuth(false);
+      setAuthChecked(true);
     });
 
     return () => {
-      subscription.unsubscribe();
+      if (subscription) {
+        subscription.unsubscribe();
+      }
     };
   }, []);
 
@@ -113,8 +155,8 @@ export const AuthProvider = ({ children }) => {
       setIsLoadingAuth(true);
       await supabase.auth.signOut();
       setUser(null);
+      setMyTechnician(null);
       setIsAuthenticated(false);
-      setIsAuthorized(false);
     } catch (err) {
       console.error('Помилка виходу:', err);
     } finally {
@@ -126,17 +168,24 @@ export const AuthProvider = ({ children }) => {
     console.log("Навігація на логін...");
   };
 
+  const value = {
+    user, 
+    myTechnician,                   
+    appUser: user,                  
+    isAuthenticated, 
+    isLoadingAuth,
+    isLoadingPublicSettings,        
+    authError,
+    appPublicSettings,              
+    authChecked,
+    logout,
+    navigateToLogin,
+    checkUserAuth: checkAppState,
+    checkAppState
+  };
+
   return (
-    <AuthContext.Provider value={{ 
-      user,
-      isAuthenticated,
-      isAuthorized,
-      isLoadingAuth,
-      authError,
-      logout,
-      navigateToLogin,
-      checkAppState
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
