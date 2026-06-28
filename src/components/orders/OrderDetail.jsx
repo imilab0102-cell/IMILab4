@@ -711,6 +711,7 @@ export default function OrderDetail({ order, open, onClose, onEdit, onDuplicate,
                   <Trash2 className="w-4 h-4" />
                 </Button>
               ) : (
+
                 <div className="flex items-center gap-1 bg-red-50 p-1 rounded-lg border border-red-200">
                   <Button size="sm" variant="destructive" className="h-7 px-2 text-[10px]" onClick={() => { onDelete?.(order.id); setShowDeleteConfirm(false); }}>Видалити</Button>
                   <Button size="sm" variant="outline" className="h-7 px-2 text-[10px] bg-white" onClick={() => setShowDeleteConfirm(false)}>Скасувати</Button>
