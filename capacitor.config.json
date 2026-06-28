@@ -1,3 +1,7 @@
+# 1. Видаліть неправильний файл
+rm capacitor.config.json
+
+# 2. Створіть правильний файл (БЕЗ команди cat)
 cat > capacitor.config.json << 'EOF'
 {
   "appId": "com.imilab.app",
