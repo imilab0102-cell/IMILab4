@@ -24,22 +24,22 @@ import Reports from '@/pages/Reports';
 import ExternalLab from '@/pages/ExternalLab';
 import ExpenseSettings from '@/pages/ExpenseSettings';
 import InvoiceTemplateSettings from '@/pages/InvoiceTemplateSettings';
-import ReceiptTemplateSettings from '@/pages/ReceiptTemplateSettings'; // ← додано імпорт
+import ReceiptTemplateSettings from '@/pages/ReceiptTemplateSettings';
 import OrderSettings from '@/pages/OrderSettings';
 import TechnicianSalaryReport from '@/pages/TechnicianSalaryReport';
+import AuthCallback from '@/pages/AuthCallback'; // ← ДОДАЙТЕ ЦЕЙ ІМПОРТ
 
 const AppRoutes = () => {
-  // Ми повністю прибираємо перевірку ролей тут, щоб відкрити доступ до ВСІХ функцій додатку!
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/auth/callback" element={<AuthCallback />} /> {/* ← ДОДАЙТЕ ЦЕЙ МАРШРУТ */}
       
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
         <Route element={<Layout />}>
-          {/* Глобальні маршрути додатку — тепер вони доступні всі одночасно */}
           <Route path="/" element={<Dashboard />} />
           <Route path="/orders" element={<Orders />} />
           <Route path="/clinics" element={<Clinics />} />
@@ -51,14 +51,10 @@ const AppRoutes = () => {
           <Route path="/pricelist" element={<PriceList />} />
           <Route path="/expenses" element={<ExpenseSettings />} />
           <Route path="/invoice-settings" element={<InvoiceTemplateSettings />} />
-          <Route path="/receipt-settings" element={<ReceiptTemplateSettings />} /> {/* ← додано маршрут */}
+          <Route path="/receipt-settings" element={<ReceiptTemplateSettings />} />
           <Route path="/order-settings" element={<OrderSettings />} />
           <Route path="/install" element={<InstallApp />} />
-          
-          {/* Сторінка замовлень техніка тепер також доступна окремим посиланням */}
           <Route path="/my-orders" element={<TechnicianOrders />} />
-          
-          {/* Додано маршрут для звіту по зарплаті техніка */}
           <Route path="/technicians/salary-report" element={<TechnicianSalaryReport />} />
         </Route>
       </Route>
@@ -68,43 +64,4 @@ const AppRoutes = () => {
   );
 };
 
-const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
-
-  if (isLoadingPublicSettings || isLoadingAuth) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="w-10 h-10 border-4 border-muted border-t-primary rounded-full animate-spin mx-auto"></div>
-          <p className="text-sm text-muted-foreground mt-3">Завантаження...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (authError) {
-    if (authError.type === 'user_not_registered') {
-      return <UserNotRegisteredError />;
-    } else if (authError.type === 'auth_required') {
-      navigateToLogin();
-      return null;
-    }
-  }
-
-  return <AppRoutes />;
-};
-
-function App() {
-  return (
-    <AuthProvider>
-      <QueryClientProvider client={queryClientInstance}>
-        <Router>
-          <AuthenticatedApp />
-        </Router>
-        <Toaster />
-      </QueryClientProvider>
-    </AuthProvider>
-  )
-}
-
-export default App;
+// ... решта коду залишається без змін
