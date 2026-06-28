@@ -40,16 +40,13 @@ export default function Login() {
     }
   };
 
-  const handleGoogle = async () => {
-    setError("");
-    try {
-      // Використовуємо метод Supabase для OAuth (Google)
-      const { error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: 'https://imi-lab4.vercel.app/auth/callback', // Повертає користувача на твій поточний сайт (наприклад, localhost:5174)
-        },
-      });
+ const { error } = await supabase.auth.signInWithOAuth({
+  provider: 'google',
+  options: {
+    // Ця адреса має бути вписана в Supabase Redirect URLs
+    redirectTo: 'com.imilab.app://auth/callback'
+  }
+});
 
       if (oauthError) throw oauthError;
     } catch (err) {
