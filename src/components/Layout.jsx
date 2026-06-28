@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 const adminLinks = [
-  { to: '/', label: 'Дашборд', icon: LayoutDashboard },
+
   { to: '/orders', label: 'Наряди', icon: FileText },
   { to: '/clinics', label: 'Клініки', icon: Building2 },
   { to: '/doctors', label: 'Лікарі', icon: UserRound },
