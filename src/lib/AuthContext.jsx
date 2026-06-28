@@ -1,12 +1,13 @@
 // src/lib/AuthContext.jsx
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { supabase } from '../supabaseClient'; // ← ПЕРЕКОНАЙТЕСЬ, ЩО ШЛЯХ ПРАВИЛЬНИЙ
+import { supabase } from '../supabaseClient';
 
 // 🔒 СПИСОК ДОЗВОЛЕНИХ EMAIL
 const ALLOWED_EMAILS = [
-  'your-email@gmail.com',
-  'admin@example.com',
-  // Додайте свої email
+  'imilab0102@gmail.com', // ← ВАШ EMAIL
+  // Додайте сюди інші email, яким хочете дозволити доступ
+  // 'admin@example.com',
+  // 'user@company.com',
 ];
 
 const AuthContext = createContext();
@@ -20,7 +21,6 @@ export const AuthProvider = ({ children }) => {
   const [authError, setAuthError] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
 
-  // Публічні налаштування додатку
   const [appPublicSettings] = useState({
     id: "imilab-app",
     public_settings: {
@@ -34,7 +34,7 @@ export const AuthProvider = ({ children }) => {
     }
   });
 
-  // Перевірка, чи email дозволений
+  // 🔒 ПЕРЕВІРКА, ЧИ EMAIL ДОЗВОЛЕНИЙ
   const isEmailAllowed = (email) => {
     if (!email) return false;
     return ALLOWED_EMAILS.includes(email.toLowerCase());
@@ -74,11 +74,13 @@ export const AuthProvider = ({ children }) => {
       if (session && session.user) {
         const userEmail = session.user.email;
         
+        // 🔒 ПЕРЕВІРЯЄМО EMAIL
         if (isEmailAllowed(userEmail)) {
           setIsAuthenticated(true);
           const profile = buildAdminProfile(session.user);
           setUser(profile);
           setMyTechnician(profile);
+          console.log('✅ Доступ дозволено для:', userEmail);
         } else {
           console.log('❌ Доступ заборонено для:', userEmail);
           setIsAuthenticated(false);
@@ -108,6 +110,44 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // 🚀 ФУНКЦІЯ ВХОДУ ЧЕРЕЗ GOOGLE
+  const signInWithGoogle = async () => {
+    try {
+      setIsLoadingAuth(true);
+      setAuthError(null);
+
+      const redirectTo = window.location.origin + '/auth/callback';
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectTo,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
+        }
+      });
+
+      if (error) {
+        console.error('❌ Помилка входу через Google:', error);
+        setAuthError({
+          type: 'google_error',
+          message: error.message || 'Помилка входу через Google'
+        });
+        throw error;
+      }
+
+      console.log('✅ Перенаправлення на Google для входу...');
+      return data;
+    } catch (error) {
+      console.error('❌ Помилка:', error);
+      throw error;
+    } finally {
+      setIsLoadingAuth(false);
+    }
+  };
+
   useEffect(() => {
     checkAppState();
 
@@ -123,6 +163,7 @@ export const AuthProvider = ({ children }) => {
           setUser(profile);
           setMyTechnician(profile);
           setAuthError(null);
+          console.log('✅ Доступ дозволено для:', userEmail);
         } else {
           console.log('❌ Доступ заборонено для:', userEmail);
           setIsAuthenticated(false);
@@ -165,7 +206,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const navigateToLogin = () => {
-    console.log("Навігація на логін...");
+    window.location.href = '/login';
   };
 
   const value = {
@@ -180,6 +221,7 @@ export const AuthProvider = ({ children }) => {
     authChecked,
     logout,
     navigateToLogin,
+    signInWithGoogle,
     checkUserAuth: checkAppState,
     checkAppState
   };
