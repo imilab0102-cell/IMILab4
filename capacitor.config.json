@@ -1,4 +1,4 @@
-
+cat > capacitor.config.json << 'EOF'
 {
   "appId": "com.imilab.app",
   "appName": "IMI Lab4",
@@ -16,4 +16,4 @@
     }
   }
 }
-
+EOF
