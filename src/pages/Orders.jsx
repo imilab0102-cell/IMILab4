@@ -20,28 +20,23 @@ const INTERNAL_EXCHANGE_RATES = { USD: 41.5, EUR: 44.5 };
 const calculateOrderTotals = (items, discountPercent = 0) => {
   const totalsByCurrency = { UAH: 0, USD: 0, EUR: 0 };
   let techPayInUah = 0;
-
   items.forEach(item => {
     const currency = item.price_currency || 'UAH';
     const qty = item.quantity || 1;
     const price = item.unit_price || 0;
-    const totalInCurrency = qty * price;
     const rate = INTERNAL_EXCHANGE_RATES[currency] || 1;
-    totalsByCurrency[currency] += totalInCurrency;
+    totalsByCurrency[currency] += qty * price;
     techPayInUah += (qty * (item.technician_price || 0)) * rate;
   });
-
   if (discountPercent > 0) {
     Object.keys(totalsByCurrency).forEach(curr => {
-      totalsByCurrency[curr] = totalsByCurrency[curr] * (1 - discountPercent / 100);
+      totalsByCurrency[curr] *= (1 - discountPercent / 100);
     });
   }
-
   const totalInUah =
     (totalsByCurrency.UAH || 0) +
     (totalsByCurrency.USD || 0) * INTERNAL_EXCHANGE_RATES.USD +
     (totalsByCurrency.EUR || 0) * INTERNAL_EXCHANGE_RATES.EUR;
-
   return {
     totalsByCurrency,
     totalInUah: Math.round(totalInUah),
@@ -61,7 +56,6 @@ const safeId = (val) => {
   return isValidUUID(strVal) ? strVal : null;
 };
 
-// Парсить items з WorkOrder (зберігається як text/JSON-рядок)
 const parseItems = (raw) => {
   if (!raw) return [];
   if (Array.isArray(raw)) return raw;
@@ -87,61 +81,7 @@ export default function Orders() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const qc = useQueryClient();
 
-  // ─── Клініки з таблиці clinic ─────────────────────────────────────────────
-  const { data: rawClinics } = useQuery({
-    queryKey: ['clinics-filter-list'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('clinic').select('id, name').order('name');
-      if (error) { console.error('Клініки:', error); return []; }
-      return data || [];
-    }
-  });
-
-  // ─── Лікарі з таблиці doctor ──────────────────────────────────────────────
-  const { data: rawDoctors } = useQuery({
-    queryKey: ['doctors-filter-list'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('doctor').select('id, full_name, clinic_id').order('full_name');
-      if (error) { console.error('Лікарі:', error); return []; }
-      return data || [];
-    }
-  });
-
-  // ─── Послуги та категорії з таблиці price_item ────────────────────────────
-  const { data: rawPriceItems } = useQuery({
-    queryKey: ['price-items-filter-list'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('price_item')
-        .select('id, name, category')
-        .order('name');
-      if (error) { console.error('Прайс-айтеми:', error); return []; }
-      return data || [];
-    }
-  });
-
-  const clinics = Array.isArray(rawClinics) ? rawClinics : [];
-  const allDoctors = Array.isArray(rawDoctors) ? rawDoctors : [];
-  const priceItems = Array.isArray(rawPriceItems) ? rawPriceItems : [];
-
-  // Унікальні категорії з price_item
-  const categoriesList = useMemo(() => {
-    return [...new Set(priceItems.map(p => p.category).filter(Boolean))].sort();
-  }, [priceItems]);
-
-  // Послуги, відфільтровані по обраній категорії
-  const servicesList = useMemo(() => {
-    if (!filterCategory || filterCategory === '_all') return priceItems;
-    return priceItems.filter(p => p.category === filterCategory);
-  }, [priceItems, filterCategory]);
-
-  // Лікарі, відфільтровані по обраній клініці
-  const filteredDoctorsList = useMemo(() => {
-    if (!filterClinic || filterClinic === '_all') return allDoctors;
-    return allDoctors.filter(d => d && String(d.clinic_id) === String(filterClinic));
-  }, [allDoctors, filterClinic]);
-
-  // ─── Замовлення ───────────────────────────────────────────────────────────
+  // ─── Замовлення (головне джерело) ────────────────────────────────────────
   const { data: rawOrders, isLoading } = useQuery({
     queryKey: ['orders'],
     queryFn: async () => {
@@ -150,11 +90,77 @@ export default function Orders() {
         .select('*')
         .order('creation_date', { ascending: false });
       if (error) throw error;
+      // Діагностика: виводимо перший запис щоб бачити реальні дані
+      if (data && data.length > 0) {
+        console.log('[Orders] Приклад замовлення:', {
+          id: data[0].id,
+          clinic_id: data[0].clinic_id,
+          clinic_name: data[0].clinic_name,
+          doctor_id: data[0].doctor_id,
+          doctor_name: data[0].doctor_name,
+        });
+      }
       return data || [];
     },
   });
 
   const orders = Array.isArray(rawOrders) ? rawOrders : [];
+
+  // ─── Унікальні клініки — беремо прямо з замовлень (clinic_name + clinic_id) 
+  // Це гарантує що показуємо тільки ті клініки, по яких є реальні замовлення,
+  // і використовуємо точно ті значення що є в БД
+  const clinicsList = useMemo(() => {
+    const map = new Map();
+    orders.forEach(o => {
+      if (!o) return;
+      const name = o.clinic_name;
+      if (name && !map.has(name)) {
+        map.set(name, { id: o.clinic_id, name });
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [orders]);
+
+  // ─── Унікальні лікарі — беремо прямо з замовлень (doctor_name + doctor_id)
+  const doctorsList = useMemo(() => {
+    const map = new Map();
+    orders.forEach(o => {
+      if (!o) return;
+      const name = o.doctor_name;
+      const clinicName = o.clinic_name;
+      if (name && !map.has(name)) {
+        map.set(name, { id: o.doctor_id, name, clinicName });
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [orders]);
+
+  // Лікарі, відфільтровані по обраній клініці
+  const filteredDoctorsList = useMemo(() => {
+    if (!filterClinic || filterClinic === '_all') return doctorsList;
+    return doctorsList.filter(d => d.clinicName === filterClinic);
+  }, [doctorsList, filterClinic]);
+
+  // ─── Категорії та послуги з price_item ───────────────────────────────────
+  const { data: rawPriceItems } = useQuery({
+    queryKey: ['price-items-filter-list'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('price_item').select('id, name, category').order('name');
+      if (error) { console.error('price_item помилка:', error); return []; }
+      return data || [];
+    }
+  });
+
+  const priceItems = Array.isArray(rawPriceItems) ? rawPriceItems : [];
+
+  const categoriesList = useMemo(() => {
+    return [...new Set(priceItems.map(p => p.category).filter(Boolean))].sort();
+  }, [priceItems]);
+
+  const servicesList = useMemo(() => {
+    if (!filterCategory || filterCategory === '_all') return priceItems;
+    return priceItems.filter(p => p.category === filterCategory);
+  }, [priceItems, filterCategory]);
 
   // ─── Мутації ──────────────────────────────────────────────────────────────
   const deleteMutation = useMutation({
@@ -176,15 +182,15 @@ export default function Orders() {
         const price = parseFloat(i.unit_price) || 0;
         return {
           price_id: safeId(i.price_id),
+          price_item_id: safeId(i.price_item_id),
           name: i.name || i.service_name || '',
+          category: i.category || '',
           quantity: qty,
           unit_price: price,
           price_currency: i.price_currency || 'UAH',
           technician_price: parseFloat(i.technician_price) || parseFloat(i.technician_pay) || 0,
           teeth: i.teeth || (i.teeth_numbers ? [i.teeth_numbers] : []),
           total: qty * price,
-          category: i.category || '',
-          price_item_id: i.price_item_id || null,
         };
       }) : [];
 
@@ -216,7 +222,6 @@ export default function Orders() {
         total_amount: totalInUah,
         technician_total_pay: techPayInUah,
         net_profit: netProfit,
-        // items зберігаємо як JSON-рядок (тип text в БД)
         items: JSON.stringify(cleanItems),
         selected_teeth: formData.selected_teeth || {},
         file_urls: formData.file_urls || [],
@@ -259,20 +264,20 @@ export default function Orders() {
         if (!match) return false;
       }
 
-      // Клініка — порівнюємо clinic_id (uuid) як рядок
+      // Клініка — порівнюємо по clinic_name (надійніше ніж uuid)
       if (filterClinic && filterClinic !== '_all') {
-        if (String(o.clinic_id || '') !== String(filterClinic)) return false;
+        if (o.clinic_name !== filterClinic) return false;
       }
 
-      // Лікар — порівнюємо doctor_id (uuid) як рядок
+      // Лікар — порівнюємо по doctor_name
       if (filterDoctor && filterDoctor !== '_all') {
-        if (String(o.doctor_id || '') !== String(filterDoctor)) return false;
+        if (o.doctor_name !== filterDoctor) return false;
       }
 
       // Статус
       if (filterStatus && filterStatus !== '_all' && o.status !== filterStatus) return false;
 
-      // Дата
+      // Дата (creation_date може бути timestamptz — беремо тільки дату)
       if (filterDate) {
         const orderDate = o.creation_date
           ? new Date(o.creation_date).toISOString().slice(0, 10)
@@ -280,24 +285,24 @@ export default function Orders() {
         if (orderDate !== filterDate) return false;
       }
 
-      // Категорія та послуга — парсимо items (text → JSON)
+      // Категорія та послуга — парсимо items (text → JSON у БД)
       if ((filterCategory && filterCategory !== '_all') || (filterService && filterService !== '_all')) {
         const items = parseItems(o.items);
 
         if (filterCategory && filterCategory !== '_all') {
-          // Шукаємо чи є хоч один item з цією категорією
           const hasCategory = items.some(item => item && item.category === filterCategory);
           if (!hasCategory) return false;
         }
 
         if (filterService && filterService !== '_all') {
-          // filterService — це uuid з price_item.id
-          // порівнюємо з price_item_id або price_id всередині item
+          // filterService — uuid з price_item.id
+          const targetName = priceItems.find(p => String(p.id) === String(filterService))?.name;
           const hasService = items.some(item =>
-            item &&
-            (String(item.price_item_id || '') === String(filterService) ||
-             String(item.price_id || '') === String(filterService) ||
-             item.name === priceItems.find(p => p.id === filterService)?.name)
+            item && (
+              String(item.price_item_id || '') === String(filterService) ||
+              String(item.price_id || '') === String(filterService) ||
+              (targetName && item.name === targetName)
+            )
           );
           if (!hasService) return false;
         }
@@ -348,7 +353,6 @@ export default function Orders() {
       </div>
 
       <div className="flex flex-col gap-3 mb-6">
-        {/* Пошук + перемикач вигляду */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -367,26 +371,25 @@ export default function Orders() {
           </Tabs>
         </div>
 
-        {/* Фільтри */}
         <div className="flex flex-wrap gap-2 items-center">
 
-          {/* Клініка */}
+          {/* Клініка — значення = clinic_name */}
           <Select value={filterClinic} onValueChange={(v) => {
             setFilterClinic(v);
-            setFilterDoctor('_all'); // скидаємо лікаря при зміні клініки
+            setFilterDoctor('_all');
           }}>
             <SelectTrigger className="h-8 text-xs w-44">
               <SelectValue placeholder="Всі клініки" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="_all">Всі клініки</SelectItem>
-              {clinics.map(c => (
-                <SelectItem key={String(c.id)} value={String(c.id)}>{c.name}</SelectItem>
+              {clinicsList.map(c => (
+                <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
 
-          {/* Лікар (залежить від клініки) */}
+          {/* Лікар — значення = doctor_name, залежить від клініки */}
           <Select value={filterDoctor} onValueChange={setFilterDoctor}>
             <SelectTrigger className="h-8 text-xs w-44">
               <SelectValue placeholder="Всі лікарі" />
@@ -394,7 +397,7 @@ export default function Orders() {
             <SelectContent>
               <SelectItem value="_all">Всі лікарі</SelectItem>
               {filteredDoctorsList.map(d => (
-                <SelectItem key={String(d.id)} value={String(d.id)}>{d.full_name}</SelectItem>
+                <SelectItem key={d.name} value={d.name}>{d.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -418,10 +421,10 @@ export default function Orders() {
             className="h-8 text-xs w-36"
           />
 
-          {/* Категорія (з price_item) */}
+          {/* Категорія */}
           <Select value={filterCategory} onValueChange={(v) => {
             setFilterCategory(v);
-            setFilterService('_all'); // скидаємо послугу при зміні категорії
+            setFilterService('_all');
           }}>
             <SelectTrigger className="h-8 text-xs w-40">
               <SelectValue placeholder="Всі категорії" />
@@ -434,7 +437,7 @@ export default function Orders() {
             </SelectContent>
           </Select>
 
-          {/* Послуга (з price_item, залежить від категорії) */}
+          {/* Послуга (залежить від категорії) */}
           <Select value={filterService} onValueChange={setFilterService}>
             <SelectTrigger className="h-8 text-xs w-48">
               <SelectValue placeholder="Всі послуги" />
