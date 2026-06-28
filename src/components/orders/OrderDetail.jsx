@@ -15,6 +15,9 @@ import {
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import * as XLSX from 'xlsx';
+import { registerPlugin } from '@capacitor/core';
+
+const FunPrint = registerPlugin('FunPrint');
 
 const PAYMENT_STATUS_STYLES = {
   'Оплачено': 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100',
@@ -266,6 +269,83 @@ export default function OrderDetail({ order, open, onClose, onEdit, onDuplicate,
     `;
   };
 
+  // === НОВА ФУНКЦІЯ: Нативний скріншот для Fun Print ===
+  const handleDirectFunPrint = () => {
+    const html = generateReceiptHTML();
+    const win = window.open('', '_blank', 'width=400,height=600');
+    if (!win) {
+      alert('Будь ласка, дозвольте спливаючі вікна');
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
+
+    // Даємо час на завантаження контенту в новому вікні
+    setTimeout(() => {
+      FunPrint.captureAndPrint()
+        .then(() => {
+          win.close();
+        })
+        .catch(err => {
+          console.error(err);
+          win.close();
+          alert('Не вдалося виконати друк');
+        });
+    }, 1000);
+  };
+
+  // === ДРУК через Fun Print ===
+  const handleFunPrint = () => {
+    const html = generateReceiptHTML();
+    const element = document.createElement('div');
+    element.innerHTML = html;
+    element.style.position = 'fixed';
+    element.style.left = '0';
+    element.style.top = '0';
+    element.style.width = '58mm';
+    element.style.background = '#ffffff';
+    element.style.padding = '4px';
+    element.style.fontSize = '10px';
+    element.style.fontFamily = "'Courier New', Courier, monospace";
+    element.style.boxSizing = 'border-box';
+    element.style.zIndex = '-9999';
+    document.body.appendChild(element);
+
+    setTimeout(() => {
+      html2canvas(element, {
+        scale: 3,
+        useCORS: true,
+        width: element.scrollWidth,
+        height: element.scrollHeight,
+        logging: false,
+        backgroundColor: '#ffffff',
+      }).then((canvas) => {
+        const dataUrl = canvas.toDataURL('image/png');
+
+        // Викликаємо наш кастомний плагін для прямого переходу в Fun Print
+        FunPrint.printImage({ image: dataUrl })
+          .then(() => console.log('Sended to Fun Print'))
+          .catch(err => {
+            console.error('Fun Print Plugin error:', err);
+            // Фолбек на стандартний шарінг якщо плагін не спрацював
+            if (navigator.share) {
+              fetch(dataUrl)
+                .then(res => res.blob())
+                .then(blob => {
+                  const file = new File([blob], `IMILab_${order.order_number}.png`, { type: 'image/png' });
+                  navigator.share({
+                    files: [file],
+                    title: 'Print Receipt',
+                  }).catch(e => console.error('Share error:', e));
+                });
+            }
+          });
+
+        document.body.removeChild(element);
+      });
+    }, 150);
+  };
+
   // === ДРУК через системний діалог ===
   const handlePrint = () => {
     const html = generateReceiptHTML();
@@ -475,25 +555,57 @@ export default function OrderDetail({ order, open, onClose, onEdit, onDuplicate,
     document.body.appendChild(element);
 
     setTimeout(() => {
+      // Створюємо картинку
       html2canvas(element, {
-        scale: 3,
+        scale: 2,
         useCORS: true,
+        allowTaint: true,
         width: element.scrollWidth,
         height: element.scrollHeight,
-        logging: false,
+        logging: true,
         backgroundColor: '#ffffff',
       }).then((canvas) => {
-        const link = document.createElement('a');
-        link.download = `Чек-наряд_${order.order_number}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-        document.body.removeChild(element);
+        const dataUrl = canvas.toDataURL('image/png');
+
+        // Видаляємо тимчасовий елемент
+        if (document.body.contains(element)) {
+          document.body.removeChild(element);
+        }
+
+        // В мобільному додатку замість скачування викликаємо Share API
+        if (navigator.share) {
+          fetch(dataUrl)
+            .then(res => res.blob())
+            .then(blob => {
+              const file = new File([blob], `IMILab_${order.order_number}.png`, { type: 'image/png' });
+              navigator.share({
+                files: [file],
+                title: `Наряд ${order.order_number}`,
+              }).catch(err => {
+                console.error('Share error:', err);
+                alert('Не вдалося надіслати фото. Спробуйте використати PDF.');
+              });
+            });
+        } else {
+          // Якщо ми в браузері на ПК
+          const link = document.createElement('a');
+          link.download = `IMILab_${order.order_number}.png`;
+          link.href = dataUrl;
+          link.click();
+        }
       }).catch((err) => {
-        console.error('Помилка створення зображення:', err);
-        alert('Не вдалося створити фото. Спробуйте використати інший формат.');
-        document.body.removeChild(element);
+        console.error('html2canvas error:', err);
+        alert('Помилка створення картинки: ' + err.message);
+        if (document.body.contains(element)) document.body.removeChild(element);
       });
-    }, 150);
+    }, 200);
+  };
+
+  const fallbackDownload = (dataUrl) => {
+    const link = document.createElement('a');
+    link.download = `Чек-наряд_${order.order_number}.png`;
+    link.href = dataUrl;
+    link.click();
   };
 
   const getParsedItems = () => {
@@ -526,9 +638,9 @@ export default function OrderDetail({ order, open, onClose, onEdit, onDuplicate,
           <DialogDescription>Деталі наряду, статус виробництва та оплати</DialogDescription>
         </div>
 
-        <DialogHeader className="p-6 pb-4 border-b bg-slate-50/50 flex flex-row items-center justify-between space-y-0">
-          <div>
-            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+        <DialogHeader className="p-4 md:p-6 pb-4 border-b bg-slate-50/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="min-w-0">
+            <DialogTitle className="text-lg font-bold flex flex-wrap items-center gap-2">
               Наряд {order.order_number}
               <StatusBadge status={status} />
             </DialogTitle>
@@ -538,75 +650,70 @@ export default function OrderDetail({ order, open, onClose, onEdit, onDuplicate,
           </div>
 
           {isAdmin && (
-            <div className="flex items-center gap-1.5 mr-6">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-50"
-                onClick={handlePrint}
-                title="Друк чека (виберіть Fun Print App у діалозі)"
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Головна кнопка для Fun Print */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 px-3 border-orange-200 bg-orange-50 text-orange-600 hover:bg-orange-100 hover:text-orange-700 animate-pulse flex items-center gap-2"
+                onClick={handleDirectFunPrint}
               >
-                <Printer className="w-4 h-4" />
+                <Printer className="w-4 h-4 stroke-[2.5px]" />
+                <span className="text-[10px] font-bold uppercase tracking-tight">Друк JPG</span>
               </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50"
-                onClick={handleShare}
-                title="Поділитися чеком (надішліть у Fun Print App)"
-              >
-                <Share2 className="w-4 h-4" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8 text-amber-500 hover:text-amber-600 hover:bg-amber-50"
-                onClick={downloadReceipt}
-                title="Скачати PDF"
-              >
-                <Download className="w-4 h-4" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8 text-purple-500 hover:text-purple-600 hover:bg-purple-50"
-                onClick={downloadWord}
-                title="Скачати Word (.doc)"
-              >
-                <FileText className="w-4 h-4" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8 text-green-500 hover:text-green-600 hover:bg-green-50"
-                onClick={downloadExcel}
-                title="Скачати Excel (.xlsx)"
-              >
-                <FileSpreadsheet className="w-4 h-4" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8 text-pink-500 hover:text-pink-600 hover:bg-pink-50"
-                onClick={downloadImage}
-                title="Скачати фото (PNG)"
-              >
-                <Image className="w-4 h-4" />
-              </Button>
+
+              <div className="flex items-center gap-1 bg-white p-1 rounded-lg border shadow-sm">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-blue-500 hover:bg-blue-50"
+                  onClick={handleFunPrint}
+                  title="Друк через меню"
+                >
+                  <Printer className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-emerald-500 hover:bg-emerald-50"
+                  onClick={handleShare}
+                  title="Поділитися"
+                >
+                  <Share2 className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-amber-500 hover:bg-amber-50"
+                  onClick={downloadReceipt}
+                  title="PDF"
+                >
+                  <Download className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-pink-500 hover:bg-pink-50"
+                  onClick={downloadImage}
+                  title="Фото"
+                >
+                  <Image className="w-4 h-4" />
+                </Button>
+              </div>
+
               {!showDeleteConfirm ? (
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                  className="h-8 w-8 text-red-400 hover:text-red-600"
                   onClick={() => setShowDeleteConfirm(true)}
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
               ) : (
-                <div className="flex items-center gap-1 bg-red-50 p-1 rounded-lg border border-red-200 animate-in fade-in zoom-in-95 duration-150">
-                  <span className="text-[11px] font-medium text-red-700 px-1.5">Видалити?</span>
-                  <Button size="sm" variant="destructive" className="h-6 px-2 text-[10px] font-bold" onClick={() => { onDelete?.(order.id); setShowDeleteConfirm(false); }}>Так</Button>
-                  <Button size="sm" variant="outline" className="h-6 px-2 text-[10px] bg-white" onClick={() => setShowDeleteConfirm(false)}>Ні</Button>
+                <div className="flex items-center gap-1 bg-red-50 p-1 rounded-lg border border-red-200">
+                  <Button size="sm" variant="destructive" className="h-7 px-2 text-[10px]" onClick={() => { onDelete?.(order.id); setShowDeleteConfirm(false); }}>Видалити</Button>
+                  <Button size="sm" variant="outline" className="h-7 px-2 text-[10px] bg-white" onClick={() => setShowDeleteConfirm(false)}>Скасувати</Button>
                 </div>
               )}
             </div>
