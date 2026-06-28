@@ -1,24 +1,29 @@
 // src/pages/AuthCallback.jsx
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase'; // ← ЗМІНІТЬ ШЛЯХ
+import { supabase } from '../supabaseClient'; // ← ШЛЯХ ДО КОРЕНЕВОГО ФАЙЛУ
 
 export default function AuthCallback() {
   const navigate = useNavigate();
 
   useEffect(() => {
     const handleCallback = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.error('Помилка отримання сесії:', error);
-        navigate('/login');
-        return;
-      }
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Помилка отримання сесії:', error);
+          navigate('/login');
+          return;
+        }
 
-      if (session) {
-        navigate('/');
-      } else {
+        if (session) {
+          navigate('/');
+        } else {
+          navigate('/login');
+        }
+      } catch (err) {
+        console.error('Неочікувана помилка:', err);
         navigate('/login');
       }
     };
