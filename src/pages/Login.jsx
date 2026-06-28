@@ -47,7 +47,7 @@ export default function Login() {
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: window.location.origin, // Повертає користувача на твій поточний сайт (наприклад, localhost:5174)
+          redirectTo: 'com.imilab.app://auth/callback', // Повертає користувача на твій поточний сайт (наприклад, localhost:5174)
         },
       });
 
