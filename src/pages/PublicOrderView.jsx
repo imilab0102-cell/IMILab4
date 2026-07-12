@@ -11,7 +11,6 @@ const LOWER_ROW = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 3
 
 const getToothImage = (num) => {
   try {
-    // Використовуємо той самий підхід, що і в ToothChart.jsx
     return new URL(`../assets/teeth/${num}.png`, import.meta.url).href;
   } catch (e) {
     return null;
@@ -57,7 +56,7 @@ export default function PublicOrderView() {
   if (orderError || !order) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white p-6 text-center">
       <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
-      <h1 className="text-xl font-bold text-slate-900">Наряд не знайдено</h1>
+      <h1 className="text-xl font-bold text-slate-900">Замовлення не знайдено</h1>
       <p className="text-slate-500 mt-2">Посилання застаріло або наряд було видалено</p>
     </div>
   );
@@ -65,7 +64,6 @@ export default function PublicOrderView() {
   const items = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
   const shades = typeof order.tooth_shades === 'string' ? JSON.parse(order.tooth_shades) : (order.tooth_shades || {});
 
-  // Визначаємо всі вибрані зуби (або з поля selected_teeth, або з айтемів)
   let selectedTeeth = [];
   if (Array.isArray(order.selected_teeth)) {
     selectedTeeth = order.selected_teeth.map(t => parseInt(t));
@@ -87,7 +85,6 @@ export default function PublicOrderView() {
     return '₴';
   };
 
-  // Розрахунок підсумків у різних валютах
   const totals = { UAH: 0, USD: 0, EUR: 0 };
   items.forEach(item => {
     const cur = item.price_currency || 'UAH';
@@ -137,27 +134,26 @@ export default function PublicOrderView() {
     <div className="min-h-screen bg-slate-100 py-6 px-2 md:py-12 md:px-4 flex justify-center font-sans text-slate-800">
       <div className="w-full max-w-[850px] bg-white shadow-[0_0_50px_rgba(0,0,0,0.1)] p-6 md:p-12 relative overflow-hidden min-h-[1100px]">
 
-        {/* TOP HEADER */}
         <div className="flex flex-col md:flex-row justify-between items-start mb-10 gap-8">
           <div className="flex-1 w-full">
-            <h1 className="text-4xl md:text-5xl font-black text-slate-800 tracking-tighter mb-6">
-              ЗАКАЗ-НАРЯД
+            <h1 className="text-4xl md:text-5xl font-black text-slate-800 tracking-tighter mb-6 uppercase">
+              ЗАМОВЛЕННЯ-НАРЯД
             </h1>
             <div className="space-y-4">
               <div className="flex items-baseline gap-2">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Пациент:</span>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Пацієнт (ПІБ):</span>
                 <div className="flex-1 border-b-2 border-slate-100 pb-1 font-black text-xl text-slate-900">
                   {order.patient_name}
                 </div>
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Доктор:</span>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Лікар (ПІБ):</span>
                 <div className="flex-1 border-b-2 border-slate-100 pb-1 font-bold text-slate-700">
                   {order.doctor_name}
                 </div>
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Клиника:</span>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Клініка:</span>
                 <div className="flex-1 border-b-2 border-slate-100 pb-1 font-bold text-slate-700">
                   {order.clinic_name}
                 </div>
@@ -178,7 +174,7 @@ export default function PublicOrderView() {
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-600 mt-1">digital dental system</p>
               </div>
             </div>
-            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
+            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed text-right">
               <p>{template?.company_address}</p>
               <p>тел. {template?.company_phone}</p>
               <p className="text-blue-500">{template?.company_email}</p>
@@ -186,23 +182,47 @@ export default function PublicOrderView() {
           </div>
         </div>
 
-        {/* WORK SCHEMA - REAL TOOTH ROW */}
+        <div className="border-2 border-sky-400 rounded-2xl p-4 md:p-6 mb-8 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase text-sky-500 tracking-wider">Кількість ложок</span>
+              <div className="flex-1 border-b border-sky-200 min-h-[20px]"></div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase text-sky-500 tracking-wider">Трансфер/гвинт</span>
+              <div className="flex-1 border-b border-sky-200 min-h-[20px]"></div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase text-sky-500 tracking-wider">Аналоги</span>
+              <div className="flex-1 border-b border-sky-200 min-h-[20px]"></div>
+            </div>
+          </div>
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase text-sky-500 tracking-wider">Абатменти</span>
+              <div className="flex-1 border-b border-sky-200 min-h-[20px]"></div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase text-sky-500 tracking-wider">Лицьова дуга</span>
+              <div className="flex-1 border-b border-sky-200 min-h-[20px]"></div>
+            </div>
+          </div>
+        </div>
+
         <div className="border-4 border-slate-900 rounded-[2.5rem] p-6 md:p-10 mb-8 bg-slate-50/50">
           <div className="text-center mb-8">
-            <h3 className="text-xs font-black uppercase text-slate-900 tracking-[0.3em] inline-block border-b-2 border-slate-900 pb-1">Схема работы</h3>
+            <h3 className="text-xs font-black uppercase text-slate-900 tracking-[0.3em] inline-block border-b-2 border-slate-900 pb-1">Схема роботи</h3>
           </div>
 
           <div className="flex flex-col gap-8">
-            {/* Top Row */}
             <div className="flex justify-center flex-wrap gap-x-1 md:gap-x-2">
               {UPPER_ROW.map(num => <ToothIcon key={num} number={num} />)}
             </div>
 
             <div className="h-px bg-slate-200 w-full relative">
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-4 text-[10px] font-black text-slate-300 tracking-widest uppercase">Dental Chart</div>
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-4 text-[10px] font-black text-slate-300 tracking-widest uppercase">Зубна карта</div>
             </div>
 
-            {/* Bottom Row */}
             <div className="flex justify-center flex-wrap gap-x-1 md:gap-x-2">
               {LOWER_ROW.map(num => <ToothIcon key={num} number={num} />)}
             </div>
@@ -211,35 +231,51 @@ export default function PublicOrderView() {
           <div className="mt-8 flex justify-center gap-10 text-[9px] font-black text-slate-400 uppercase tracking-widest">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-blue-500" />
-              <span>Левая сторона (R)</span>
+              <span>Ліва сторона (R)</span>
             </div>
             <div className="flex items-center gap-2">
-              <span>Правая сторона (L)</span>
+              <span>Права сторона (L)</span>
               <div className="w-2 h-2 rounded-full bg-blue-500" />
             </div>
           </div>
         </div>
 
-        {/* DETAILS GRID */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-          {/* Material & Shades Info */}
           <div className="space-y-6">
             <div className="bg-white border-2 border-slate-100 rounded-[2rem] p-6 shadow-sm">
-               <h3 className="text-[11px] font-black uppercase text-slate-400 tracking-widest mb-4">Технические детали</h3>
+               <h3 className="text-[11px] font-black uppercase text-slate-400 tracking-widest mb-4">Технічні деталі</h3>
                <div className="space-y-3">
                  {Object.entries(shades).map(([tooth, s]) => (
                    <div key={tooth} className="flex items-center justify-between text-sm">
                      <span className="font-black text-blue-600">Зуб {tooth}:</span>
                      <span className="font-bold text-slate-700">
-                       {s.neck ? `Шейка: ${s.neck}` : ''} {s.incisal ? ` | Край: ${s.incisal}` : ''}
+                       {s.neck ? `Шийка: ${s.neck}` : ''} {s.incisal ? ` | Край: ${s.incisal}` : ''}
                      </span>
                    </div>
                  ))}
-                 {Object.keys(shades).length === 0 && <p className="text-xs text-slate-400 italic">Специфические цвета не указаны</p>}
+                 {Object.keys(shades).length === 0 && <p className="text-xs text-slate-400 italic">Специфічні кольори не вказані</p>}
+               </div>
+               <div className="space-y-3 pt-4 border-t border-slate-100 mt-4">
+                  <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 border border-slate-300 rounded"></div>
+                      <span>Примірка каркаса</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 border border-slate-300 rounded"></div>
+                      <span>Примірка без глазурі</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase">
+                    <div className="w-3 h-3 border border-slate-300 rounded"></div>
+                    <span>Без примірки</span>
+                  </div>
                </div>
             </div>
             <div className="bg-slate-900 text-white rounded-[2rem] p-6 shadow-xl">
-               <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-4">Материал</h3>
+               <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-4">Матеріал</h3>
                <div className="grid grid-cols-1 gap-3">
                   {(() => {
                     const materialKeywords = ['ZrO2', 'E-Max', 'CoCr', 'PMMA'];
@@ -251,7 +287,7 @@ export default function PublicOrderView() {
                     );
 
                     if (detected.length === 0) {
-                      return <p className="text-[10px] text-slate-500 italic">Не указано в услугах</p>;
+                      return <p className="text-[10px] text-slate-500 italic">Не вказано в послугах</p>;
                     }
 
                     return detected.map(m => (
@@ -265,10 +301,9 @@ export default function PublicOrderView() {
             </div>
           </div>
 
-          {/* Totals in Currencies */}
           <div className="bg-blue-600 rounded-[2.5rem] p-8 text-white shadow-2xl shadow-blue-200 flex flex-col justify-between">
             <div>
-               <h3 className="text-xs font-black uppercase text-blue-200 tracking-[0.2em] mb-6">Расчет в валютах</h3>
+               <h3 className="text-xs font-black uppercase text-blue-200 tracking-[0.2em] mb-6">Розрахунок у валютах</h3>
                <div className="space-y-4">
                  {Object.entries(finalTotals).map(([cur, val]) => (
                    <div key={cur} className="flex justify-between items-baseline border-b border-blue-500/50 pb-2">
@@ -280,28 +315,27 @@ export default function PublicOrderView() {
             </div>
             <div className="mt-8 pt-4 border-t-2 border-blue-400/50">
                <div className="flex justify-between items-baseline">
-                 <span className="text-xs font-black uppercase text-blue-100">Итого в гривне:</span>
+                 <span className="text-xs font-black uppercase text-blue-100">Разом у гривні:</span>
                  <div className="text-right">
                     <span className="text-4xl font-black leading-none">{totalInUah.toLocaleString()}</span>
                     <span className="text-lg font-black ml-1 uppercase">грн</span>
                  </div>
                </div>
                <div className="mt-2 flex items-center gap-2 text-[8px] font-bold text-blue-100 uppercase tracking-widest opacity-60">
-                 <Coins className="w-3 h-3" /> Курсы: USD {rates.USD} | EUR {rates.EUR}
+                 <Coins className="w-3 h-3" /> Курси: USD {rates.USD} | EUR {rates.EUR}
                </div>
             </div>
           </div>
         </div>
 
-        {/* SERVICES TABLE */}
         <div className="mb-10 overflow-hidden rounded-[2.5rem] border-2 border-slate-100 shadow-sm">
            <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
                   <th className="p-6">№</th>
-                  <th className="p-6">Наименование услуги</th>
-                  <th className="p-6 text-center">К-во</th>
-                  <th className="p-6 text-right">Сумма</th>
+                  <th className="p-6">Найменування послуги</th>
+                  <th className="p-6 text-center">К-сть</th>
+                  <th className="p-6 text-right">Сума</th>
                 </tr>
               </thead>
               <tbody className="text-sm font-bold text-slate-700 divide-y divide-slate-50">
@@ -322,22 +356,21 @@ export default function PublicOrderView() {
            </table>
         </div>
 
-        {/* FOOTER */}
         <div className="space-y-10 mt-12">
           <div className="bg-slate-50 p-6 rounded-3xl border-2 border-dashed border-slate-200">
-            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">Примечания:</span>
+            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">Примітки:</span>
             <p className="text-sm italic text-slate-600 leading-relaxed font-medium">
-               {order.notes || 'Дополнительные указания отсутствуют'}
+               {order.notes || 'Додаткові вказівки відсутні'}
             </p>
           </div>
 
           <div className="flex flex-col md:flex-row justify-between items-center gap-6 py-6 border-t border-slate-100">
              <div className="flex flex-col items-center md:items-start gap-1">
-               <span className="text-[10px] font-black uppercase text-slate-300">Дата примерки</span>
+               <span className="text-[10px] font-black uppercase text-slate-300">Дата примірки</span>
                <div className="w-40 border-b-2 border-slate-100 h-6 text-center font-bold text-slate-800"></div>
              </div>
              <div className="flex flex-col items-center md:items-end gap-1">
-               <span className="text-[10px] font-black uppercase text-slate-300">Дата сдачи</span>
+               <span className="text-[10px] font-black uppercase text-slate-300">Дата здачі</span>
                <div className="w-40 border-b-2 border-slate-100 h-6 text-center font-bold text-slate-800">
                  {order.completion_date ? format(parseISO(order.completion_date), 'dd.MM.yyyy') : ''}
                </div>
@@ -345,11 +378,10 @@ export default function PublicOrderView() {
           </div>
 
           <div className="text-center">
-             <p className="text-[10px] text-slate-300 font-black uppercase tracking-[0.6em]">IMILAB DIGITAL DENTAL SYSTEM</p>
+             <p className="text-[10px] text-slate-300 font-black uppercase tracking-[0.6em]">IMILab DIGITAL DENTAL SYSTEM</p>
           </div>
         </div>
 
-        {/* DESIGN ACCENT */}
         <div className="absolute top-0 right-0 w-3 h-full bg-blue-600"></div>
       </div>
     </div>
