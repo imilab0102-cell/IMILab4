@@ -2,7 +2,21 @@ import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/api/supabaseClient';
 import { format, parseISO } from 'date-fns';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Coins } from 'lucide-react';
+import { fetchExchangeRates } from '@/api/currencyService.js';
+
+// FDI Tooth Numbering Groups for Rendering
+const UPPER_ROW = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
+const LOWER_ROW = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
+
+const getToothImage = (num) => {
+  try {
+    // Використовуємо той самий підхід, що і в ToothChart.jsx
+    return new URL(`../assets/teeth/${num}.png`, import.meta.url).href;
+  } catch (e) {
+    return null;
+  }
+};
 
 export default function PublicOrderView() {
   const { id } = useParams();
@@ -28,6 +42,12 @@ export default function PublicOrderView() {
     },
   });
 
+  const { data: exchangeRates } = useQuery({
+    queryKey: ['exchangeRates'],
+    queryFn: fetchExchangeRates,
+    staleTime: 300000,
+  });
+
   if (orderLoading) return (
     <div className="min-h-screen flex items-center justify-center bg-white">
       <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
@@ -45,46 +65,108 @@ export default function PublicOrderView() {
   const items = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
   const shades = typeof order.tooth_shades === 'string' ? JSON.parse(order.tooth_shades) : (order.tooth_shades || {});
 
+  // Визначаємо всі вибрані зуби (або з поля selected_teeth, або з айтемів)
+  let selectedTeeth = [];
+  if (Array.isArray(order.selected_teeth)) {
+    selectedTeeth = order.selected_teeth.map(t => parseInt(t));
+  } else if (typeof order.selected_teeth === 'string' && order.selected_teeth.startsWith('{')) {
+    selectedTeeth = order.selected_teeth.replace(/[{}]/g, '').split(',').map(t => parseInt(t.trim())).filter(t => !isNaN(t));
+  } else {
+    items.forEach(i => {
+      if (i.teeth_numbers) {
+        if (Array.isArray(i.teeth_numbers)) i.teeth_numbers.forEach(n => selectedTeeth.push(parseInt(n)));
+        else selectedTeeth.push(parseInt(i.teeth_numbers));
+      }
+    });
+  }
+  selectedTeeth = [...new Set(selectedTeeth.filter(t => !isNaN(t)))];
+
   const getCurrencySymbol = (code) => {
     if (code === 'USD') return '$';
     if (code === 'EUR') return '€';
     return '₴';
   };
 
+  // Розрахунок підсумків у різних валютах
+  const totals = { UAH: 0, USD: 0, EUR: 0 };
+  items.forEach(item => {
+    const cur = item.price_currency || 'UAH';
+    if (totals[cur] !== undefined) {
+      totals[cur] += parseFloat(item.unit_price || 0) * (parseInt(item.quantity) || 1);
+    }
+  });
+
+  const discountPercent = parseFloat(order.manual_discount_percent) || parseFloat(order.doctor_discount) || 0;
+  const rates = exchangeRates || { USD: 41.5, EUR: 44.5 };
+
+  const finalTotals = {};
+  Object.entries(totals).forEach(([cur, val]) => {
+    if (val > 0) finalTotals[cur] = val * (1 - discountPercent / 100);
+  });
+
+  const totalInUah = Object.entries(finalTotals).reduce((acc, [cur, val]) => {
+    if (cur === 'UAH') return acc + val;
+    return acc + (val * rates[cur]);
+  }, 0);
+
+  const ToothIcon = ({ number }) => {
+    const isSelected = selectedTeeth.includes(number);
+    const imageSrc = getToothImage(number);
+    const toothShade = shades[number];
+
+    return (
+      <div className="flex flex-col items-center min-w-[35px] md:min-w-[40px]">
+        <span className={`text-[9px] font-black mb-1 ${isSelected ? 'text-blue-600' : 'text-slate-300'}`}>{number}</span>
+        <div className={`relative w-8 h-10 flex items-center justify-center rounded-lg border transition-all ${isSelected ? 'bg-blue-50 border-blue-200 shadow-sm' : 'border-transparent'}`}>
+          <img
+            src={imageSrc}
+            alt={number}
+            className={`w-full h-full object-contain ${isSelected ? 'opacity-100' : 'opacity-20 grayscale'}`}
+          />
+          {isSelected && toothShade && (
+            <div className="absolute -bottom-1 -right-1 bg-blue-600 text-white text-[7px] font-black px-1 rounded-sm shadow-sm">
+              {toothShade.neck || toothShade.incisal}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 py-6 px-2 md:py-12 md:px-4 flex justify-center font-sans text-slate-800">
-      <div className="w-full max-w-[800px] bg-white shadow-[0_0_50px_rgba(0,0,0,0.1)] p-6 md:p-12 relative overflow-hidden min-h-[1100px]">
+      <div className="w-full max-w-[850px] bg-white shadow-[0_0_50px_rgba(0,0,0,0.1)] p-6 md:p-12 relative overflow-hidden min-h-[1100px]">
 
         {/* TOP HEADER */}
-        <div className="flex justify-between items-start mb-10">
-          <div>
-            <h1 className="text-4xl md:text-5xl font-black text-slate-800 tracking-tighter mb-2">
+        <div className="flex flex-col md:flex-row justify-between items-start mb-10 gap-8">
+          <div className="flex-1 w-full">
+            <h1 className="text-4xl md:text-5xl font-black text-slate-800 tracking-tighter mb-6">
               ЗАКАЗ-НАРЯД
             </h1>
-            <div className="space-y-4 mt-8">
+            <div className="space-y-4">
               <div className="flex items-baseline gap-2">
-                <span className="text-sm font-bold text-slate-400 whitespace-nowrap">Пациент (ФИО):</span>
-                <div className="flex-1 border-b-2 border-slate-100 pb-1 font-bold text-lg px-2">
-                  {order.patient_name || '___________________________'}
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Пациент:</span>
+                <div className="flex-1 border-b-2 border-slate-100 pb-1 font-black text-xl text-slate-900">
+                  {order.patient_name}
                 </div>
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-sm font-bold text-slate-400 whitespace-nowrap">Доктор (ФИО):</span>
-                <div className="flex-1 border-b-2 border-slate-100 pb-1 font-bold text-base px-2">
-                  {order.doctor_name || '___________________________'}
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Доктор:</span>
+                <div className="flex-1 border-b-2 border-slate-100 pb-1 font-bold text-slate-700">
+                  {order.doctor_name}
                 </div>
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-sm font-bold text-slate-400 whitespace-nowrap">Клиника:</span>
-                <div className="flex-1 border-b-2 border-slate-100 pb-1 font-bold text-base px-2">
-                  {order.clinic_name || '___________________________'}
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Клиника:</span>
+                <div className="flex-1 border-b-2 border-slate-100 pb-1 font-bold text-slate-700">
+                  {order.clinic_name}
                 </div>
               </div>
             </div>
           </div>
-          <div className="text-right flex flex-col items-end">
+          <div className="text-right flex flex-col items-end shrink-0">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center p-2">
+              <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center p-2 shadow-xl">
                 <img
                   src="https://media.base44.com/images/public/6a2586df519da133b2eddb2b/81b6f23b1_photo_2026-06-07_18-59-57.jpg"
                   alt="Logo"
@@ -92,160 +174,132 @@ export default function PublicOrderView() {
                 />
               </div>
               <div className="text-right">
-                <h2 className="text-2xl font-black tracking-tighter leading-none">IMILAB</h2>
-                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mt-1">зуботехническая лаборатория</p>
+                <h2 className="text-3xl font-black tracking-tighter leading-none text-slate-900">IMILab</h2>
+                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-600 mt-1">digital dental system</p>
               </div>
             </div>
-            <div className="text-[10px] text-slate-500 font-medium space-y-0.5 mt-2">
-              <p>{template?.company_address || 'ул. Центральная, 1А'}</p>
-              <p>тел. {template?.company_phone || '+380 66 927 8019'}</p>
-              <p>Email: {template?.company_email || 'info@imilab.com'}</p>
+            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
+              <p>{template?.company_address}</p>
+              <p>тел. {template?.company_phone}</p>
+              <p className="text-blue-500">{template?.company_email}</p>
             </div>
           </div>
         </div>
 
-        {/* ACCESSORIES BOX */}
-        <div className="border-2 border-sky-400 rounded-2xl p-4 md:p-6 mb-8 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase text-sky-500 tracking-wider">Количество ложек</span>
-              <div className="flex-1 border-b border-sky-200 min-h-[20px]"></div>
+        {/* WORK SCHEMA - REAL TOOTH ROW */}
+        <div className="border-4 border-slate-900 rounded-[2.5rem] p-6 md:p-10 mb-8 bg-slate-50/50">
+          <div className="text-center mb-8">
+            <h3 className="text-xs font-black uppercase text-slate-900 tracking-[0.3em] inline-block border-b-2 border-slate-900 pb-1">Схема работы</h3>
+          </div>
+
+          <div className="flex flex-col gap-8">
+            {/* Top Row */}
+            <div className="flex justify-center flex-wrap gap-x-1 md:gap-x-2">
+              {UPPER_ROW.map(num => <ToothIcon key={num} number={num} />)}
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase text-sky-500 tracking-wider">Трансфер/винт</span>
-              <div className="flex-1 border-b border-sky-200 min-h-[20px]"></div>
+
+            <div className="h-px bg-slate-200 w-full relative">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-4 text-[10px] font-black text-slate-300 tracking-widest uppercase">Dental Chart</div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase text-sky-500 tracking-wider">Аналоги</span>
-              <div className="flex-1 border-b border-sky-200 min-h-[20px]"></div>
+
+            {/* Bottom Row */}
+            <div className="flex justify-center flex-wrap gap-x-1 md:gap-x-2">
+              {LOWER_ROW.map(num => <ToothIcon key={num} number={num} />)}
             </div>
           </div>
-          <div className="space-y-4">
+
+          <div className="mt-8 flex justify-center gap-10 text-[9px] font-black text-slate-400 uppercase tracking-widest">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase text-sky-500 tracking-wider">Абатменты</span>
-              <div className="flex-1 border-b border-sky-200 min-h-[20px]"></div>
+              <div className="w-2 h-2 rounded-full bg-blue-500" />
+              <span>Левая сторона (R)</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase text-sky-500 tracking-wider">Лицевая дуга</span>
-              <div className="flex-1 border-b border-sky-200 min-h-[20px]"></div>
+              <span>Правая сторона (L)</span>
+              <div className="w-2 h-2 rounded-full bg-blue-500" />
             </div>
           </div>
         </div>
 
-        {/* WORK SCHEMA */}
-        <div className="border-2 border-sky-400 rounded-[2.5rem] p-8 mb-8 relative">
-          <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-white px-6">
-            <h3 className="text-xs font-black uppercase text-sky-500 tracking-[0.2em]">Схема работы</h3>
-          </div>
-          <p className="text-[8px] text-center text-slate-400 uppercase font-bold tracking-wider mb-8">
-            (О – опорный зуб, Х – промежуток, V – имплантат, П – полноанатомическая коронка, К – каркас под облицовку)
-          </p>
-
-          <div className="flex flex-col gap-10 items-center overflow-x-auto pb-4">
-            {/* Top Teeth */}
-            <div className="flex gap-1 md:gap-2">
-              {[18,17,16,15,14,13,12,11,21,22,23,24,25,26,27,28].map(num => (
-                <div key={num} className="flex flex-col items-center gap-1 min-w-[30px]">
-                  <span className="text-[10px] font-bold text-slate-400">{num}</span>
-                  <div className={`w-8 h-10 border-2 rounded-lg flex items-center justify-center text-[10px] font-black ${shades[num] ? 'border-sky-500 bg-sky-50 text-sky-600 shadow-lg shadow-sky-100' : 'border-slate-100 text-slate-200'}`}>
-                    {num > 20 ? '🦷' : '🦷'}
-                  </div>
-                </div>
-              ))}
-            </div>
-            {/* Bottom Teeth */}
-            <div className="flex gap-1 md:gap-2">
-              {[48,47,46,45,44,43,42,41,31,32,33,34,35,36,37,38].map(num => (
-                <div key={num} className="flex flex-col items-center gap-1 min-w-[30px]">
-                  <div className={`w-8 h-10 border-2 rounded-lg flex items-center justify-center text-[10px] font-black ${shades[num] ? 'border-sky-500 bg-sky-50 text-sky-600 shadow-lg shadow-sky-100' : 'border-slate-100 text-slate-200'}`}>
-                    🦷
-                  </div>
-                  <span className="text-[10px] font-bold text-slate-400">{num}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* MATERIAL AND COLOR */}
+        {/* DETAILS GRID */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-          <div className="border-2 border-sky-400 rounded-[2rem] p-6 space-y-6">
-            <h3 className="text-[11px] font-black uppercase text-sky-500 tracking-widest text-center border-b border-sky-100 pb-3">Материал каркаса</h3>
-            <div className="grid grid-cols-2 gap-4">
-              {['ZrO₂', 'E-Max', 'CoCr', 'PMMA'].map((mat, i) => (
-                <div key={mat} className="flex items-center gap-2">
-                  <div className="w-5 h-5 rounded-full border-2 border-sky-300 flex items-center justify-center text-[8px] font-bold text-sky-600">{i+1}</div>
-                  <span className="text-[11px] font-bold text-slate-600 uppercase">{mat}</span>
-                </div>
-              ))}
+          {/* Material & Shades Info */}
+          <div className="space-y-6">
+            <div className="bg-white border-2 border-slate-100 rounded-[2rem] p-6 shadow-sm">
+               <h3 className="text-[11px] font-black uppercase text-slate-400 tracking-widest mb-4">Технические детали</h3>
+               <div className="space-y-3">
+                 {Object.entries(shades).map(([tooth, s]) => (
+                   <div key={tooth} className="flex items-center justify-between text-sm">
+                     <span className="font-black text-blue-600">Зуб {tooth}:</span>
+                     <span className="font-bold text-slate-700">
+                       {s.neck ? `Шейка: ${s.neck}` : ''} {s.incisal ? ` | Край: ${s.incisal}` : ''}
+                     </span>
+                   </div>
+                 ))}
+                 {Object.keys(shades).length === 0 && <p className="text-xs text-slate-400 italic">Специфические цвета не указаны</p>}
+               </div>
             </div>
-            <div className="space-y-3 pt-4 border-t border-sky-50">
-              <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 border border-slate-300 rounded"></div>
-                  <span>Примерка каркаса</span>
-                </div>
-                <span className="text-[8px]">Дата ______</span>
-              </div>
-              <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 border border-slate-300 rounded"></div>
-                  <span>Примерка без глазури</span>
-                </div>
-                <span className="text-[8px]">Дата ______</span>
-              </div>
-              <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase">
-                <div className="w-3 h-3 border border-slate-300 rounded"></div>
-                <span>Без примерки</span>
-                <span className="ml-auto text-[8px]">Дата сдачи ______</span>
-              </div>
+            <div className="bg-slate-900 text-white rounded-[2rem] p-6 shadow-xl">
+               <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-4">Материал</h3>
+               <div className="grid grid-cols-2 gap-3">
+                  {['ZrO2', 'E-Max', 'CoCr', 'PMMA'].map(m => (
+                    <div key={m} className="flex items-center gap-2">
+                       <div className="w-4 h-4 rounded-full border border-slate-700 flex items-center justify-center text-[8px] font-black">✓</div>
+                       <span className="text-xs font-bold uppercase">{m}</span>
+                    </div>
+                  ))}
+               </div>
             </div>
           </div>
 
-          <div className="border-2 border-sky-400 rounded-[2rem] p-6">
-            <h3 className="text-[11px] font-black uppercase text-sky-500 tracking-widest text-center border-b border-sky-100 pb-3 mb-4">Карта цвета</h3>
-            <div className="space-y-4">
-              <div className="flex items-baseline gap-2">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">Цвет VITA Classic:</span>
-                <div className="flex-1 border-b-2 border-slate-50 font-black text-blue-600 px-2">
-                   {Object.values(shades).map(s => s.neck || s.incisal).filter(Boolean).join(', ') || '__________'}
-                </div>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">CHROMASCOP:</span>
-                <div className="flex-1 border-b-2 border-slate-50"></div>
-              </div>
-
-              <div className="flex justify-around items-center pt-4">
-                 <div className="text-center opacity-20"><span className="text-3xl">🦷</span><p className="text-[8px] font-bold uppercase mt-1">Фронт</p></div>
-                 <div className="text-center opacity-20"><span className="text-3xl">🦷</span><p className="text-[8px] font-bold uppercase mt-1">Бок</p></div>
-              </div>
+          {/* Totals in Currencies */}
+          <div className="bg-blue-600 rounded-[2.5rem] p-8 text-white shadow-2xl shadow-blue-200 flex flex-col justify-between">
+            <div>
+               <h3 className="text-xs font-black uppercase text-blue-200 tracking-[0.2em] mb-6">Расчет в валютах</h3>
+               <div className="space-y-4">
+                 {Object.entries(finalTotals).map(([cur, val]) => (
+                   <div key={cur} className="flex justify-between items-baseline border-b border-blue-500/50 pb-2">
+                     <span className="text-xs font-bold uppercase text-blue-100">{cur}:</span>
+                     <span className="text-2xl font-black">{val.toLocaleString()} {getCurrencySymbol(cur)}</span>
+                   </div>
+                 ))}
+               </div>
+            </div>
+            <div className="mt-8 pt-4 border-t-2 border-blue-400/50">
+               <div className="flex justify-between items-baseline">
+                 <span className="text-xs font-black uppercase text-blue-100">Итого в гривне:</span>
+                 <div className="text-right">
+                    <span className="text-4xl font-black leading-none">{totalInUah.toLocaleString()}</span>
+                    <span className="text-lg font-black ml-1 uppercase">грн</span>
+                 </div>
+               </div>
+               <div className="mt-2 flex items-center gap-2 text-[8px] font-bold text-blue-100 uppercase tracking-widest opacity-60">
+                 <Coins className="w-3 h-3" /> Курсы: USD {rates.USD} | EUR {rates.EUR}
+               </div>
             </div>
           </div>
         </div>
 
         {/* SERVICES TABLE */}
-        <div className="mb-10 overflow-hidden rounded-[2rem] border-2 border-slate-100">
+        <div className="mb-10 overflow-hidden rounded-[2.5rem] border-2 border-slate-100 shadow-sm">
            <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest">
-                  <th className="p-4 border-r border-slate-800">№</th>
-                  <th className="p-4 border-r border-slate-800">№ Зуба</th>
-                  <th className="p-4 border-r border-slate-800">Наименование</th>
-                  <th className="p-4 border-r border-slate-800 text-center">Кол-во</th>
-                  <th className="p-4 border-r border-slate-800 text-right">Цена</th>
-                  <th className="p-4 text-right">Стоимость</th>
+                <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                  <th className="p-6">№</th>
+                  <th className="p-6">Наименование услуги</th>
+                  <th className="p-6 text-center">К-во</th>
+                  <th className="p-6 text-right">Сумма</th>
                 </tr>
               </thead>
-              <tbody className="text-xs font-bold text-slate-700 divide-y divide-slate-100">
+              <tbody className="text-sm font-bold text-slate-700 divide-y divide-slate-50">
                 {items.map((item, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-4 border-r border-slate-100 text-slate-300 font-black">{idx + 1}</td>
-                    <td className="p-4 border-r border-slate-100 text-blue-600">{item.tooth_number || '—'}</td>
-                    <td className="p-4 border-r border-slate-100">{item.service_name || item.name}</td>
-                    <td className="p-4 border-r border-slate-100 text-center">{item.quantity || 1}</td>
-                    <td className="p-4 border-r border-slate-100 text-right text-slate-400">{item.unit_price} {getCurrencySymbol(item.price_currency)}</td>
-                    <td className="p-4 text-right font-black text-slate-900">
+                  <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="p-6 text-slate-300 font-black">{idx + 1}</td>
+                    <td className="p-6">
+                      <p className="font-black text-slate-800 tracking-tight">{item.service_name || item.name}</p>
+                      {item.teeth_numbers && <span className="text-[10px] text-blue-500 font-black uppercase">Зуб: {item.teeth_numbers}</span>}
+                    </td>
+                    <td className="p-6 text-center font-black text-slate-900">x{item.quantity || 1}</td>
+                    <td className="p-6 text-right font-black text-slate-900">
                       {(item.unit_price * (item.quantity || 1)).toLocaleString()} {getCurrencySymbol(item.price_currency)}
                     </td>
                   </tr>
@@ -255,24 +309,34 @@ export default function PublicOrderView() {
         </div>
 
         {/* FOOTER */}
-        <div className="space-y-8 mt-auto">
-          <div className="flex items-baseline gap-2">
-            <span className="text-[11px] font-black uppercase text-slate-400">Описание:</span>
-            <div className="flex-1 border-b-2 border-slate-50 pb-2 text-sm italic text-slate-600">
-               {order.notes || '-'}
-            </div>
+        <div className="space-y-10 mt-12">
+          <div className="bg-slate-50 p-6 rounded-3xl border-2 border-dashed border-slate-200">
+            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">Примечания:</span>
+            <p className="text-sm italic text-slate-600 leading-relaxed font-medium">
+               {order.notes || 'Дополнительные указания отсутствуют'}
+            </p>
           </div>
-          <div className="flex justify-between items-center text-[10px] font-black uppercase text-slate-400 tracking-widest pt-10">
-             <div className="flex gap-2">Дата примерки: <span className="text-slate-800 border-b border-slate-200 min-w-[100px]"></span></div>
-             <div className="flex gap-2">Дата сдачи: <span className="text-slate-800 border-b border-slate-200 min-w-[100px]">{order.completion_date ? format(parseISO(order.completion_date), 'dd.MM.yyyy') : ''}</span></div>
+
+          <div className="flex flex-col md:flex-row justify-between items-center gap-6 py-6 border-t border-slate-100">
+             <div className="flex flex-col items-center md:items-start gap-1">
+               <span className="text-[10px] font-black uppercase text-slate-300">Дата примерки</span>
+               <div className="w-40 border-b-2 border-slate-100 h-6 text-center font-bold text-slate-800"></div>
+             </div>
+             <div className="flex flex-col items-center md:items-end gap-1">
+               <span className="text-[10px] font-black uppercase text-slate-300">Дата сдачи</span>
+               <div className="w-40 border-b-2 border-slate-100 h-6 text-center font-bold text-slate-800">
+                 {order.completion_date ? format(parseISO(order.completion_date), 'dd.MM.yyyy') : ''}
+               </div>
+             </div>
           </div>
-          <div className="text-center pt-12">
-             <p className="text-[9px] text-slate-300 font-bold uppercase tracking-[0.5em]">IMILAB DIGITAL DENTAL SYSTEM</p>
+
+          <div className="text-center">
+             <p className="text-[10px] text-slate-300 font-black uppercase tracking-[0.6em]">IMILAB DIGITAL DENTAL SYSTEM</p>
           </div>
         </div>
 
-        {/* SIDE BAR STYLE STRIP */}
-        <div className="absolute top-0 right-0 w-2 h-full bg-sky-400 opacity-20"></div>
+        {/* DESIGN ACCENT */}
+        <div className="absolute top-0 right-0 w-3 h-full bg-blue-600"></div>
       </div>
     </div>
   );
