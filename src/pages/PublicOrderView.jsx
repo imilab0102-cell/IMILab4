@@ -98,6 +98,12 @@ export default function PublicOrderView() {
   const discountPercent = parseFloat(order.manual_discount_percent) || parseFloat(order.doctor_discount) || 0;
   const rates = exchangeRates || { USD: 41.5, EUR: 44.5 };
 
+  // ВАЖЛИВО: Використовуємо ті ж самі назви полів, що і в OrderDetail.jsx
+  const currentRates = {
+    USD: rates.USD || 41.5,
+    EUR: rates.EUR || 44.5
+  };
+
   const finalTotals = {};
   Object.entries(totals).forEach(([cur, val]) => {
     if (val > 0) finalTotals[cur] = val * (1 - discountPercent / 100);
@@ -105,7 +111,7 @@ export default function PublicOrderView() {
 
   const totalInUah = Object.entries(finalTotals).reduce((acc, [cur, val]) => {
     if (cur === 'UAH') return acc + val;
-    return acc + (val * rates[cur]);
+    return acc + (val * currentRates[cur]);
   }, 0);
 
   const ToothIcon = ({ number }) => {
@@ -338,7 +344,7 @@ export default function PublicOrderView() {
                  </div>
                </div>
                <div className="mt-2 flex items-center gap-2 text-[8px] font-bold text-blue-100 uppercase tracking-widest opacity-60">
-                 <Coins className="w-3 h-3" /> Курси: USD {rates.USD} | EUR {rates.EUR}
+                 <Coins className="w-3 h-3" /> Курси: USD {currentRates.USD} | EUR {currentRates.EUR}
                </div>
             </div>
           </div>
