@@ -1,0 +1,270 @@
+import { useState, useEffect, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/api/supabaseClient';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent } from '@/components/ui/card';
+import { Plus, Trash2, ArrowLeft, Save } from 'lucide-react';
+import { format } from 'date-fns';
+
+export default function ExternalLabOrderForm({ provider, onBack, initialData = {} }) {
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState({
+    order_date: format(new Date(), 'yyyy-MM-dd'),
+    provider_id: provider?.id || '',
+    lab_name: provider?.name || '',
+    patient_name: initialData.patient_name || '',
+    clinic_name: initialData.clinic_name || '',
+    notes: '',
+    items: [],
+    payment_status: 'Борг',
+    status: 'В роботі',
+    ...initialData,
+  });
+
+  // Завантаження послуг з прайс-листа
+  const { data: priceItems = [] } = useQuery({
+    queryKey: ['priceItems'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('price_item').select('id, name, client_price, price_currency').order('name');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const [selectedPriceItemId, setSelectedPriceItemId] = useState('');
+
+  const addItem = () => {
+    if (!selectedPriceItemId) return;
+    const priceItem = priceItems.find(p => p.id === selectedPriceItemId);
+    if (!priceItem) return;
+    const newItem = {
+      price_item_id: priceItem.id,
+      service_name: priceItem.name,
+      quantity: 1,
+      unit_price: priceItem.client_price,
+      total: priceItem.client_price,
+    };
+    setForm(prev => ({ ...prev, items: [...prev.items, newItem] }));
+    setSelectedPriceItemId('');
+  };
+
+  const updateItem = (index, field, value) => {
+    const updated = [...form.items];
+    updated[index] = { ...updated[index], [field]: value };
+    if (field === 'quantity' || field === 'unit_price') {
+      updated[index].total = (updated[index].quantity || 0) * (updated[index].unit_price || 0);
+    }
+    setForm(prev => ({ ...prev, items: updated }));
+  };
+
+  const removeItem = (index) => {
+    setForm(prev => ({ ...prev, items: prev.items.filter((_, i) => i !== index) }));
+  };
+
+  const totalAmount = useMemo(() => {
+    return form.items.reduce((sum, item) => sum + (item.total || 0), 0);
+  }, [form.items]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (data) => {
+      const { data: saved, error } = await supabase
+        .from('ExternalLabOrder')
+        .insert([{
+          ...data,
+          total_amount: totalAmount,
+          created_at: new Date().toISOString(),
+        }])
+        .select()
+        .single();
+      if (error) throw error;
+      return saved;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['externalLabOrders'] });
+      alert('Замовлення успішно створено!');
+      onBack(); // повертаємось до списку провайдерів
+    },
+    onError: (err) => {
+      alert(`Помилка: ${err.message}`);
+    },
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (form.items.length === 0) {
+      alert('Додайте хоча б одну послугу');
+      return;
+    }
+    saveMutation.mutate(form);
+  };
+
+  return (
+    <div className="space-y-6 max-w-4xl mx-auto p-4">
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="icon" onClick={onBack}>
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+        <h1 className="text-2xl font-bold">Замовлення для {provider?.name}</h1>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <Card>
+          <CardContent className="p-5 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Дата замовлення *</label>
+                <Input
+                  type="date"
+                  value={form.order_date}
+                  onChange={e => setForm({ ...form, order_date: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Лабораторія / Технік</label>
+                <Input value={form.lab_name} disabled />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Пацієнт</label>
+                <Input
+                  value={form.patient_name}
+                  onChange={e => setForm({ ...form, patient_name: e.target.value })}
+                  placeholder="ПІБ пацієнта"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Клініка</label>
+                <Input
+                  value={form.clinic_name}
+                  onChange={e => setForm({ ...form, clinic_name: e.target.value })}
+                  placeholder="Назва клініки"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Примітки</label>
+              <Textarea
+                value={form.notes}
+                onChange={e => setForm({ ...form, notes: e.target.value })}
+                rows={3}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-5 space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="font-semibold">Послуги</h3>
+              <div className="flex gap-2">
+                <Select value={selectedPriceItemId} onValueChange={setSelectedPriceItemId}>
+                  <SelectTrigger className="w-64">
+                    <SelectValue placeholder="Виберіть послугу" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {priceItems.map(p => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name} — {p.client_price} {p.price_currency || 'UAH'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button type="button" onClick={addItem} size="sm" disabled={!selectedPriceItemId}>
+                  <Plus className="w-4 h-4" /> Додати
+                </Button>
+              </div>
+            </div>
+
+            {form.items.length === 0 ? (
+              <p className="text-muted-foreground text-sm text-center py-4">Немає доданих послуг</p>
+            ) : (
+              <div className="space-y-2">
+                {form.items.map((item, idx) => (
+                  <div key={idx} className="flex flex-wrap items-end gap-2 p-2 border rounded-md">
+                    <div className="flex-1 min-w-[150px]">
+                      <label className="text-xs">Послуга</label>
+                      <Input value={item.service_name} disabled />
+                    </div>
+                    <div className="w-20">
+                      <label className="text-xs">К-сть</label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={item.quantity}
+                        onChange={e => updateItem(idx, 'quantity', parseInt(e.target.value) || 1)}
+                      />
+                    </div>
+                    <div className="w-28">
+                      <label className="text-xs">Ціна</label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={item.unit_price}
+                        onChange={e => updateItem(idx, 'unit_price', parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div className="w-28">
+                      <label className="text-xs">Сума</label>
+                      <Input value={item.total?.toFixed(2)} disabled />
+                    </div>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(idx)}>
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2">
+              <div className="text-right">
+                <p className="text-sm text-muted-foreground">Загальна сума:</p>
+                <p className="text-2xl font-bold">{totalAmount.toFixed(2)} грн</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm font-medium">Статус оплати</label>
+            <Select value={form.payment_status} onValueChange={val => setForm({ ...form, payment_status: val })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Оплачено">Оплачено</SelectItem>
+                <SelectItem value="Частково">Частково</SelectItem>
+                <SelectItem value="Борг">Борг</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-sm font-medium">Статус замовлення</label>
+            <Select value={form.status} onValueChange={val => setForm({ ...form, status: val })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="В роботі">В роботі</SelectItem>
+                <SelectItem value="Готове">Готове</SelectItem>
+                <SelectItem value="Відмінене">Відмінене</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3">
+          <Button type="button" variant="outline" onClick={onBack}>Скасувати</Button>
+          <Button type="submit" disabled={saveMutation.isPending}>
+            <Save className="w-4 h-4 mr-1" />
+            {saveMutation.isPending ? 'Збереження...' : 'Створити замовлення'}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}

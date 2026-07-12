@@ -1,0 +1,63 @@
+{
+  "name": "InvoiceTemplate",
+  "type": "object",
+  "properties": {
+    "company_name": {
+      "type": "string",
+      "description": "Назва компанії"
+    },
+    "company_address": {
+      "type": "string",
+      "description": "Адреса компанії"
+    },
+    "company_phone": {
+      "type": "string",
+      "description": "Телефон компанії"
+    },
+    "company_email": {
+      "type": "string",
+      "description": "Email компанії"
+    },
+    "company_code": {
+      "type": "string",
+      "description": "КВЕР / Код компанії"
+    },
+    "bank_name": {
+      "type": "string",
+      "description": "Назва банку"
+    },
+    "bank_account": {
+      "type": "string",
+      "description": "Номер рахунку"
+    },
+    "invoice_title": {
+      "type": "string",
+      "description": "Назва документа (наприклад: РАХУНОК, КОРРЕКЦІЙНИЙ РАХУНОК)"
+    },
+    "footer_text": {
+      "type": "string",
+      "description": "Додатковий текст підвалу"
+    },
+    "show_bank_details": {
+      "type": "boolean",
+      "description": "Показувати реквізити банку",
+      "default": true
+    },
+    "show_company_code": {
+      "type": "boolean",
+      "description": "Показувати код компанії",
+      "default": true
+    },
+    "header_color": {
+      "type": "string",
+      "description": "Колір заголовка (RGB hex, наприклад: #336699)",
+      "default": "#336699"
+    },
+    "summary_color": {
+      "type": "string",
+      "description": "Колір сумарної строки",
+      "default": "#336699"
+    }
+  },
+  "required": ["company_name"]
+}

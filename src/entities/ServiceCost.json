@@ -1,0 +1,59 @@
+{
+  "name": "ServiceCost",
+  "type": "object",
+  "properties": {
+    "price_item_id": {
+      "type": "string",
+      "description": "ID послуги з прайс-листу"
+    },
+    "service_name": {
+      "type": "string",
+      "description": "Назва послуги"
+    },
+    "material_costs": {
+      "type": "number",
+      "description": "Витрати на матеріали (грн)"
+    },
+    "gypsum_quantity": {
+      "type": "number",
+      "description": "Кількість гіпсу (кг)"
+    },
+    "gypsum_unit_price": {
+      "type": "number",
+      "description": "Ціна гіпсу за кг (грн)"
+    },
+    "milling_cost": {
+      "type": "number",
+      "description": "Вартість фрезеровки (грн)"
+    },
+    "print3d_cost": {
+      "type": "number",
+      "description": "Вартість 3D-друку (грн)"
+    },
+    "other_materials_cost": {
+      "type": "number",
+      "description": "Вартість інших матеріалів (грн)"
+    },
+    "fixed_costs": {
+      "type": "number",
+      "description": "Постійні витрати (грн)"
+    },
+    "technician_pay": {
+      "type": "number",
+      "description": "Загальна ЗП техніків (грн)"
+    },
+    "total_cost": {
+      "type": "number",
+      "description": "Загальна собівартість (грн)"
+    },
+    "net_profit": {
+      "type": "number",
+      "description": "Чистий прибуток (грн)"
+    },
+    "profitability_percent": {
+      "type": "number",
+      "description": "Рентабельність (%)"
+    }
+  },
+  "required": ["price_item_id", "service_name"]
+}

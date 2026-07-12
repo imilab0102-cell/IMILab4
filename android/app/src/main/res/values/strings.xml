@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">IMILab</string>
+    <string name="title_activity_main">IMILab</string>
+    <string name="package_name">com.imilab.app</string>
+    <string name="custom_url_scheme">com.imilab.app</string>
+</resources>

@@ -1,0 +1,233 @@
+{
+  "name": "WorkOrder",
+  "type": "object",
+  "properties": {
+    "order_number": {
+      "type": "string",
+      "description": "Номер наряду (автогенерація)"
+    },
+    "creation_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Дата створення"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Дата здачі (дедлайн)"
+    },
+    "clinic_id": {
+      "type": "string",
+      "description": "ID клініки"
+    },
+    "clinic_name": {
+      "type": "string",
+      "description": "Назва клініки"
+    },
+    "doctor_id": {
+      "type": "string",
+      "description": "ID лікаря"
+    },
+    "doctor_name": {
+      "type": "string",
+      "description": "ПІБ лікаря"
+    },
+    "doctor_discount": {
+      "type": "number",
+      "description": "Знижка лікаря %",
+      "default": 0
+    },
+    "patient_name": {
+      "type": "string",
+      "description": "ПІБ пацієнта"
+    },
+    "patient_age": {
+      "type": "number",
+      "description": "Вік пацієнта"
+    },
+    "patient_gender": {
+      "type": "string",
+      "enum": [
+        "Чоловік",
+        "Жінка"
+      ],
+      "description": "Стать пацієнта"
+    },
+    "tooth_color": {
+      "type": "string",
+      "description": "Колір зубів за шкалою Vita"
+    },
+    "selected_teeth": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "description": "Обрані зуби на схемі"
+    },
+    "items": {
+      "type": "array",
+      "description": "Специфікація робіт",
+      "items": {
+        "type": "object",
+        "properties": {
+          "price_item_id": {
+            "type": "string"
+          },
+          "service_name": {
+            "type": "string"
+          },
+          "teeth_numbers": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit_price": {
+            "type": "number"
+          },
+          "technician_pay": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "technology_stages": {
+      "type": "array",
+      "description": "Технологічні етапи виконання наряду з розподілом оплати",
+      "items": {
+        "type": "object",
+        "properties": {
+          "stage_id": {
+            "type": "string",
+            "description": "Унікальний ID етапу"
+          },
+          "stage_name": {
+            "type": "string",
+            "description": "Назва етапу (наприклад: Гіпсовка, Моделювання, Полірування)"
+          },
+          "technician_id": {
+            "type": "string",
+            "description": "ID техніка, який виконує етап"
+          },
+          "technician_name": {
+            "type": "string",
+            "description": "ПІБ техніка"
+          },
+          "payment_type": {
+            "type": "string",
+            "enum": [
+              "fixed",
+              "percentage"
+            ],
+            "description": "Тип оплати: fixed (фіксована сума в грн) або percentage (% від загального прайсу)"
+          },
+          "payment_value": {
+            "type": "number",
+            "description": "Значення оплати: сума в грн (для fixed) або % (для percentage)"
+          },
+          "calculated_amount": {
+            "type": "number",
+            "description": "Розраховна сума для цього етапу (в грн) - заповнюється автоматично"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "in_progress",
+              "completed"
+            ],
+            "default": "pending",
+            "description": "Статус виконання етапу"
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Дата початку роботи на етапі"
+          },
+          "completion_date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Дата завершення етапу"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Примітки по етапу"
+          }
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Новий",
+        "В роботі",
+        "На примірці",
+        "Готовий",
+        "Зданий",
+        "Скасований"
+      ],
+      "default": "Новий",
+      "description": "Статус наряду"
+    },
+    "payment_status": {
+      "type": "string",
+      "enum": [
+        "Оплачено",
+        "Частково",
+        "Борг"
+      ],
+      "default": "Борг",
+      "description": "Статус оплати"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Коментарі/Нотатки"
+    },
+    "expenses": {
+      "type": "string",
+      "description": "Витрати"
+    },
+    "discount": {
+      "type": "string",
+      "description": "Знижка або надбавка (% або сума)"
+    },
+    "file_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Фото/Файли"
+    },
+    "total_amount": {
+      "type": "number",
+      "description": "Загальна вартість наряду для клієнта (прайс)"
+    },
+    "total_technician_pay": {
+      "type": "number",
+      "description": "Загальна сума виплати всім техніками за всі етапи"
+    },
+    "lab_gross_profit": {
+      "type": "number",
+      "description": "Брутто-прибуток лабораторії (total_amount - total_technician_pay)"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Дата початку роботи"
+    },
+    "completion_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Дата завершення"
+    }
+  },
+  "required": [
+    "patient_name",
+    "clinic_id",
+    "doctor_id",
+    "total_amount"
+  ]
+}

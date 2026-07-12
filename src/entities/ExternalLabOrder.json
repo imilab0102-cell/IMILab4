@@ -1,0 +1,58 @@
+{
+  "name": "ExternalLabOrder",
+  "type": "object",
+  "properties": {
+    "order_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Дата замовлення"
+    },
+    "lab_name": {
+      "type": "string",
+      "description": "Назва зовнішньої лабораторії / техніка"
+    },
+    "patient_name": {
+      "type": "string",
+      "description": "Пацієнт"
+    },
+    "clinic_name": {
+      "type": "string",
+      "description": "Клініка"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Примітки"
+    },
+    "items": {
+      "type": "array",
+      "description": "Послуги",
+      "items": {
+        "type": "object",
+        "properties": {
+          "price_item_id": { "type": "string" },
+          "service_name": { "type": "string" },
+          "quantity": { "type": "number" },
+          "unit_price": { "type": "number" },
+          "total": { "type": "number" }
+        }
+      }
+    },
+    "total_amount": {
+      "type": "number",
+      "description": "Загальна сума"
+    },
+    "payment_status": {
+      "type": "string",
+      "enum": ["Оплачено", "Частково", "Борг"],
+      "default": "Борг",
+      "description": "Статус оплати"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["В роботі", "Готово", "Відмінено"],
+      "default": "В роботі",
+      "description": "Статус замовлення"
+    }
+  },
+  "required": ["lab_name", "order_date"]
+}

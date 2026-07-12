@@ -1,0 +1,25 @@
+{
+  "name": "Expenses",
+  "type": "object",
+  "properties": {
+    "monthly_fixed_costs": {
+      "type": "number",
+      "description": "Постійні витрати на місяць"
+    },
+    "currency": {
+      "type": "string",
+      "enum": ["UAH", "USD", "EUR"],
+      "default": "UAH",
+      "description": "Валюта витрат"
+    },
+    "monthly_workload": {
+      "type": "number",
+      "description": "Середнє завантаження на місяць (кількість робіт)"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Нотатки про витрати"
+    }
+  },
+  "required": ["monthly_fixed_costs", "monthly_workload"]
+}

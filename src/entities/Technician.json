@@ -1,0 +1,47 @@
+{
+  "name": "Technician",
+  "type": "object",
+  "properties": {
+    "full_name": {
+      "type": "string",
+      "description": "ПІБ техніка"
+    },
+    "specialization": {
+      "type": "string",
+      "enum": [
+        "Кераміст",
+        "Знімник",
+        "Ортодонт",
+        "CAD/CAM",
+        "Універсал"
+      ],
+      "description": "Спеціалізація техніка"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Телефон техніка"
+    },
+    "user_id": {
+      "type": "string",
+      "description": "ID користувача в системі (для зв'язку з акаунтом)"
+    },
+    "services": {
+      "type": "array",
+      "description": "Послуги, які виконує технік",
+      "items": {
+        "type": "object",
+        "properties": {
+          "service_name": {
+            "type": "string"
+          },
+          "price": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "full_name"
+  ]
+}
