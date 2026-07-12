@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/api/supabaseClient';
 import { format, parseISO } from 'date-fns';
-import { Loader2, AlertCircle, Coins } from 'lucide-react';
+import { Loader2, AlertCircle, Coins, CheckCircle2 } from 'lucide-react';
 import { fetchExchangeRates } from '@/api/currencyService.js';
 
 // FDI Tooth Numbering Groups for Rendering
@@ -110,11 +110,7 @@ export default function PublicOrderView() {
 
   const discountPercent = parseFloat(order.manual_discount_percent) || parseFloat(order.doctor_discount) || 0;
   const rates = exchangeRates || { USD: 41.5, EUR: 44.5 };
-
-  const currentRates = {
-    USD: rates.USD || 41.5,
-    EUR: rates.EUR || 44.5
-  };
+  const currentRates = { USD: rates.USD || 41.5, EUR: rates.EUR || 44.5 };
 
   const finalTotals = {};
   Object.entries(totals).forEach(([cur, val]) => {
@@ -141,7 +137,7 @@ export default function PublicOrderView() {
             className={`w-full h-full object-contain ${isSelected ? 'opacity-100' : 'opacity-20 grayscale'}`}
           />
           {isSelected && toothShade && (
-            <div className="absolute -bottom-1 -right-1 bg-blue-600 text-white text-[7px] font-black px-1 rounded-sm shadow-sm">
+            <div className="absolute -bottom-1 -right-1 bg-blue-600 text-white text-[7px] font-black px-1 rounded-sm shadow-sm z-10">
               {toothShade.neck || toothShade.incisal}
             </div>
           )}
@@ -171,7 +167,8 @@ export default function PublicOrderView() {
       </div>
 
       <div className="max-w-2xl mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
-        {/* Основна інформація - Картки */}
+
+        {/* Patient & Doctor Card */}
         <div className="bg-white p-4 sm:p-5 rounded-[2rem] shadow-sm border border-slate-100 space-y-4">
            <div className="flex items-start gap-3">
               <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shrink-0 text-lg">🏥</div>
@@ -189,6 +186,7 @@ export default function PublicOrderView() {
            </div>
         </div>
 
+        {/* Dates Grid */}
         <div className="bg-white p-4 sm:p-5 rounded-[2rem] shadow-sm border border-slate-100 grid grid-cols-2 gap-4">
            <div className="space-y-1 border-r border-slate-100 pr-2">
               <p className="text-[9px] uppercase text-slate-400 font-black tracking-widest">Поступлення</p>
@@ -200,7 +198,28 @@ export default function PublicOrderView() {
            </div>
         </div>
 
-        {/* Схема зубів - Покращена адаптивність */}
+        {/* ACCESSORIES CARD (BACK FROM PREVIOUS VERSION) */}
+        <div className="bg-sky-50/50 p-5 rounded-[2rem] border-2 border-sky-100/50 space-y-3">
+          <p className="text-[9px] font-black uppercase text-sky-600 tracking-widest flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-sky-400" /> Комплектація замовлення
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
+            {[
+              { label: 'Кількість ложок', val: order.trays_count },
+              { label: 'Трансфер/гвинт', val: order.transfers_count },
+              { label: 'Аналоги', val: order.analogs_count },
+              { label: 'Абатменти', val: order.abutments_count },
+              { label: 'Лицьова дуга', val: order.face_bow ? 'Так' : '' }
+            ].map((acc, idx) => (
+              <div key={idx} className="flex items-center justify-between border-b border-sky-100 pb-1">
+                <span className="text-[10px] font-bold text-sky-800/60 uppercase">{acc.label}</span>
+                <span className="text-xs font-black text-sky-900">{acc.val || '—'}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* TOOTH CHART */}
         <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
           <div className="px-5 py-3 border-b bg-slate-50/50 flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-slate-500">
             <span>Зубна карта (FDI)</span>
@@ -229,7 +248,7 @@ export default function PublicOrderView() {
           </div>
         </div>
 
-        {/* Послуги - Компактний список як у наряді */}
+        {/* SERVICES LIST */}
         <div className="bg-white rounded-[2rem] shadow-md border border-slate-100 overflow-hidden">
           <div className="px-5 py-3 border-b bg-slate-900 flex justify-between items-center">
             <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Перелік послуг</h3>
@@ -251,7 +270,7 @@ export default function PublicOrderView() {
             ))}
           </div>
 
-          {/* Фінансовий підсумок - Темний блок */}
+          {/* TOTALS BOX */}
           <div className="bg-slate-950 p-5 sm:p-8">
             <div className="space-y-3">
               <div className="flex justify-between items-center">
@@ -293,27 +312,59 @@ export default function PublicOrderView() {
           </div>
         </div>
 
-        {/* Додаткові деталі */}
-        <div className="grid grid-cols-1 gap-4">
-           {Object.keys(shades).length > 0 && (
-             <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100">
-                <p className="text-[9px] font-black uppercase text-blue-600 tracking-widest mb-3 flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-600" /> Розколірка VITA
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5">
-                  {Object.entries(shades).map(([tooth, s]) => (
-                    <div key={tooth} className="flex items-center justify-between text-[11px] py-1 border-b border-slate-50">
-                      <span className="font-black text-blue-600 uppercase">Зуб {tooth}</span>
-                      <span className="font-bold text-slate-700">{s.neck ? `Ш: ${s.neck}` : ''} {s.incisal ? ` | К: ${s.incisal}` : ''}</span>
-                    </div>
-                  ))}
-                </div>
-             </div>
-           )}
+        {/* TECHNICAL DETAILS & MATERIALS & TRIALS (BACK FROM PREVIOUS VERSION) */}
+        <div className="space-y-4">
+           {/* Material & Shades Card */}
+           <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100">
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Технічні специфікації</h3>
+                {(() => {
+                    const materialKeywords = ['ZrO2', 'E-Max', 'CoCr', 'PMMA'];
+                    const detected = materialKeywords.filter(mat =>
+                      items.some(i => (i.service_name || '').toLowerCase().includes(mat.toLowerCase()))
+                    );
+                    return (
+                      <div className="flex gap-1.5">
+                        {detected.map(m => (
+                          <span key={m} className="px-2 py-0.5 bg-slate-900 text-white text-[8px] font-black rounded-md uppercase">✓ {m}</span>
+                        ))}
+                      </div>
+                    );
+                })()}
+              </div>
 
+              <div className="grid grid-cols-1 gap-1.5">
+                {Object.entries(shades).map(([tooth, s]) => (
+                  <div key={tooth} className="flex items-center justify-between text-[11px] py-1 border-b border-slate-50 last:border-0">
+                    <span className="font-black text-blue-600 uppercase">Зуб {tooth} (Колір)</span>
+                    <span className="font-bold text-slate-700">{s.neck ? `Ш: ${s.neck}` : ''} {s.incisal ? ` | К: ${s.incisal}` : ''}</span>
+                  </div>
+                ))}
+                {Object.keys(shades).length === 0 && <p className="text-[10px] text-slate-400 italic">Окремі кольори не вказані</p>}
+              </div>
+
+              {/* TRIALS CHECKBOXES (AESTHETIC STYLE) */}
+              <div className="mt-6 pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                 {[
+                   { id: 'frame', label: 'Примірка каркаса' },
+                   { id: 'bisque', label: 'Примірка без глазурі' },
+                   { id: 'final', label: 'Без примірки' }
+                 ].map(trial => (
+                    <div key={trial.id} className="flex items-center gap-2">
+                       <div className="w-4 h-4 rounded border-2 border-slate-200 flex items-center justify-center text-[10px] text-blue-600">
+                          {/* Here we could check if order.trial_type matches, but using placeholder checkmark for now */}
+                          {order.trial_type === trial.id ? <CheckCircle2 className="w-3 h-3 fill-blue-600 text-white" /> : null}
+                       </div>
+                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">{trial.label}</span>
+                    </div>
+                 ))}
+              </div>
+           </div>
+
+           {/* Notes Card */}
            <div className="bg-amber-50/40 p-5 rounded-[2rem] border border-amber-100/60">
               <p className="text-[9px] font-black uppercase text-amber-600 tracking-widest mb-2 flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-amber-600" /> Коментарі
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-600" /> Коментарі до замовлення
               </p>
               <p className="text-[11px] text-slate-600 leading-relaxed font-medium italic">
                 {order.notes || 'Додаткові вказівки відсутні'}
@@ -321,9 +372,28 @@ export default function PublicOrderView() {
            </div>
         </div>
 
-        <div className="text-center pt-8 pb-4 opacity-30">
-           <p className="text-[8px] text-slate-400 font-black uppercase tracking-[0.4em]">IMILab Digital Dental System</p>
+        {/* Laboratory Info / Footer */}
+        <div className="pt-10 border-t border-slate-100 space-y-4">
+           <div className="flex flex-col items-center text-center space-y-3">
+              <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center p-2 grayscale opacity-50">
+                <img
+                  src="https://media.base44.com/images/public/6a2586df519da133b2eddb2b/81b6f23b1_photo_2026-06-07_18-59-57.jpg"
+                  alt="Logo"
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-black uppercase text-slate-800 tracking-widest">Цифрова лабораторія IMILab</p>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
+                  {template?.company_address} • тел. {template?.company_phone}
+                </p>
+              </div>
+           </div>
+           <div className="text-center opacity-20">
+              <p className="text-[7px] text-slate-400 font-black uppercase tracking-[0.5em]">Digital Dental Workflow v4.0</p>
+           </div>
         </div>
+
       </div>
     </div>
   );
