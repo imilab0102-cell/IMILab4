@@ -228,19 +228,19 @@ export default function PublicOrderView() {
               <span className="text-blue-500 font-black">L</span>
             </div>
           </div>
-          <div className="p-3 sm:p-6 overflow-x-auto flex justify-center bg-white">
-            <div className="flex flex-col gap-4 py-2 min-w-fit">
+          <div className="p-3 sm:p-6 overflow-x-auto bg-white">
+            <div className="flex flex-col gap-4 py-2 min-w-max mx-auto w-fit">
               <div className="flex flex-col gap-2">
-                <div className="flex justify-center gap-0.5 sm:gap-1.5">
+                <div className="flex justify-center gap-0.5 sm:gap-1.5 px-4">
                   <div className="flex gap-0.5">{UPPER_LEFT.map(num => <ToothIcon key={num} number={num} />)}</div>
-                  <div className="w-px h-10 bg-slate-100 self-center"></div>
+                  <div className="w-px h-10 bg-slate-100 self-center mx-1"></div>
                   <div className="flex gap-0.5">{UPPER_RIGHT.map(num => <ToothIcon key={num} number={num} />)}</div>
                 </div>
               </div>
               <div className="flex flex-col gap-2">
-                <div className="flex justify-center gap-0.5 sm:gap-1.5">
+                <div className="flex justify-center gap-0.5 sm:gap-1.5 px-4">
                   <div className="flex gap-0.5">{LOWER_LEFT.map(num => <ToothIcon key={num} number={num} />)}</div>
-                  <div className="w-px h-10 bg-slate-100 self-center"></div>
+                  <div className="w-px h-10 bg-slate-100 self-center mx-1"></div>
                   <div className="flex gap-0.5">{LOWER_RIGHT.map(num => <ToothIcon key={num} number={num} />)}</div>
                 </div>
               </div>
