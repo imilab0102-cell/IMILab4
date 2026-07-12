@@ -79,7 +79,7 @@ export default function OrderDetail({ order, open, onClose, onEdit, onDuplicate,
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['orders'] });
-      alert('✅ Статус оновлено!');
+      onClose(); // Закриваємо вікно після успішного збереження
     },
   });
 
@@ -325,10 +325,12 @@ export default function OrderDetail({ order, open, onClose, onEdit, onDuplicate,
             </h2>
             <p className="text-xs text-slate-500 font-medium">{order.patient_name}</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <Button size="icon" variant="ghost" className="rounded-full hover:bg-slate-100" onClick={handleSaveReceiptAsImage} title="Зберегти чек як фото"><ImageIcon className="w-4 h-4 text-blue-600" /></Button>
             <Button size="icon" variant="ghost" className="rounded-full hover:bg-slate-100" onClick={() => setQrOpen(true)} title="Показати QR-код наряду"><QrCode className="w-4 h-4 text-slate-600" /></Button>
             <Button size="icon" variant="ghost" className="rounded-full hover:bg-slate-100" onClick={handleDownloadPdf}><Download className="w-4 h-4 text-slate-600" /></Button>
+            <div className="w-px h-6 bg-slate-200 mx-1" />
+            <Button size="icon" variant="ghost" className="rounded-full hover:bg-red-50 hover:text-red-500" onClick={onClose} title="Закрити"><X className="w-5 h-5" /></Button>
           </div>
         </div>
 
