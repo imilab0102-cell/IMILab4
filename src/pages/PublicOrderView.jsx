@@ -6,8 +6,10 @@ import { Loader2, AlertCircle, Coins } from 'lucide-react';
 import { fetchExchangeRates } from '@/api/currencyService.js';
 
 // FDI Tooth Numbering Groups for Rendering
-const UPPER_ROW = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
-const LOWER_ROW = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
+const UPPER_LEFT = [18, 17, 16, 15, 14, 13, 12, 11];
+const UPPER_RIGHT = [21, 22, 23, 24, 25, 26, 27, 28];
+const LOWER_LEFT = [48, 47, 46, 45, 44, 43, 42, 41];
+const LOWER_RIGHT = [31, 32, 33, 34, 35, 36, 37, 38];
 
 const getToothImage = (num) => {
   try {
@@ -134,6 +136,7 @@ export default function PublicOrderView() {
     <div className="min-h-screen bg-slate-100 py-6 px-2 md:py-12 md:px-4 flex justify-center font-sans text-slate-800">
       <div className="w-full max-w-[850px] bg-white shadow-[0_0_50px_rgba(0,0,0,0.1)] p-6 md:p-12 relative overflow-hidden min-h-[1100px]">
 
+        {/* TOP HEADER */}
         <div className="flex flex-col md:flex-row justify-between items-start mb-10 gap-8">
           <div className="flex-1 w-full">
             <h1 className="text-4xl md:text-5xl font-black text-slate-800 tracking-tighter mb-6 uppercase">
@@ -150,6 +153,12 @@ export default function PublicOrderView() {
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Лікар (ПІБ):</span>
                 <div className="flex-1 border-b-2 border-slate-100 pb-1 font-bold text-slate-700">
                   {order.doctor_name}
+                </div>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap text-blue-500">Дата поступлення:</span>
+                <div className="flex-1 border-b-2 border-blue-50 pb-1 font-bold text-blue-700">
+                  {order.creation_date ? format(parseISO(order.creation_date), 'dd.MM.yyyy') : '—'}
                 </div>
               </div>
               <div className="flex items-baseline gap-2">
@@ -209,26 +218,33 @@ export default function PublicOrderView() {
           </div>
         </div>
 
-        <div className="border-4 border-slate-900 rounded-[2.5rem] p-6 md:p-10 mb-8 bg-slate-50/50">
-          <div className="text-center mb-8">
+        {/* WORK SCHEMA - MOBILE ADAPTIVE */}
+        <div className="border-4 border-slate-900 rounded-[2.5rem] p-4 md:p-10 mb-8 bg-slate-50/50">
+          <div className="text-center mb-6 md:mb-8">
             <h3 className="text-xs font-black uppercase text-slate-900 tracking-[0.3em] inline-block border-b-2 border-slate-900 pb-1">Схема роботи</h3>
           </div>
 
-          <div className="flex flex-col gap-8">
-            <div className="flex justify-center flex-wrap gap-x-1 md:gap-x-2">
-              {UPPER_ROW.map(num => <ToothIcon key={num} number={num} />)}
+          <div className="flex flex-col gap-6 md:gap-8">
+            {/* Top Row - Split on mobile */}
+            <div className="flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-2">
+              <div className="flex justify-center gap-1">{UPPER_LEFT.map(num => <ToothIcon key={num} number={num} />)}</div>
+              <div className="hidden sm:block w-px h-8 bg-slate-200 mx-1"></div>
+              <div className="flex justify-center gap-1">{UPPER_RIGHT.map(num => <ToothIcon key={num} number={num} />)}</div>
             </div>
 
             <div className="h-px bg-slate-200 w-full relative">
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-4 text-[10px] font-black text-slate-300 tracking-widest uppercase">Зубна карта</div>
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-4 text-[8px] md:text-[10px] font-black text-slate-300 tracking-widest uppercase whitespace-nowrap">Dental Chart</div>
             </div>
 
-            <div className="flex justify-center flex-wrap gap-x-1 md:gap-x-2">
-              {LOWER_ROW.map(num => <ToothIcon key={num} number={num} />)}
+            {/* Bottom Row - Split on mobile */}
+            <div className="flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-2">
+              <div className="flex justify-center gap-1">{LOWER_LEFT.map(num => <ToothIcon key={num} number={num} />)}</div>
+              <div className="hidden sm:block w-px h-8 bg-slate-200 mx-1"></div>
+              <div className="flex justify-center gap-1">{LOWER_RIGHT.map(num => <ToothIcon key={num} number={num} />)}</div>
             </div>
           </div>
 
-          <div className="mt-8 flex justify-center gap-10 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+          <div className="mt-8 flex justify-center gap-6 md:gap-10 text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-blue-500" />
               <span>Ліва сторона (R)</span>
@@ -366,13 +382,15 @@ export default function PublicOrderView() {
 
           <div className="flex flex-col md:flex-row justify-between items-center gap-6 py-6 border-t border-slate-100">
              <div className="flex flex-col items-center md:items-start gap-1">
-               <span className="text-[10px] font-black uppercase text-slate-300">Дата примірки</span>
-               <div className="w-40 border-b-2 border-slate-100 h-6 text-center font-bold text-slate-800"></div>
+               <span className="text-[10px] font-black uppercase text-slate-300 tracking-widest">Дата поступлення</span>
+               <div className="w-40 border-b-2 border-slate-100 h-6 text-center font-bold text-slate-800">
+                 {order.creation_date ? format(parseISO(order.creation_date), 'dd.MM.yyyy') : ''}
+               </div>
              </div>
              <div className="flex flex-col items-center md:items-end gap-1">
-               <span className="text-[10px] font-black uppercase text-slate-300">Дата здачі</span>
+               <span className="text-[10px] font-black uppercase text-slate-300 tracking-widest">Дата здачі (план)</span>
                <div className="w-40 border-b-2 border-slate-100 h-6 text-center font-bold text-slate-800">
-                 {order.completion_date ? format(parseISO(order.completion_date), 'dd.MM.yyyy') : ''}
+                 {order.due_date ? format(parseISO(order.due_date), 'dd.MM.yyyy') : ''}
                </div>
              </div>
           </div>
