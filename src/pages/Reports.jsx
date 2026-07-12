@@ -362,7 +362,7 @@ export default function Reports() {
 
           <div style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center;">
             <p style="font-size: 12px; font-weight: bold; margin-bottom: 5px;">${t.footer_text || 'Дякуємо за співпрацю!'}</p>
-            <p style="font-size: 10px; color: #94a3b8;">Звіт сформовано в системі IMI.Lab • ${format(new Date(), 'dd.MM.yyyy HH:mm')}</p>
+            <p style="font-size: 10px; color: #94a3b8;">Звіт сформовано в системі IMILab • ${format(new Date(), 'dd.MM.yyyy HH:mm')}</p>
           </div>
         </div>
       `;

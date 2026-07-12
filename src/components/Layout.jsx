@@ -62,11 +62,11 @@ export default function Layout() {
         <div className="px-6 py-4 border-b border-border flex items-center gap-3">
           <img 
             src="https://media.base44.com/images/public/6a2586df519da133b2eddb2b/81b6f23b1_photo_2026-06-07_18-59-57.jpg" 
-            alt="IMI Lab" 
+            alt="IMILab"
             className="w-12 h-12 object-contain" 
           />
           <div>
-            <h1 className="text-xl font-bold text-primary tracking-tight font-heading">IMI Lab</h1>
+            <h1 className="text-xl font-bold text-primary tracking-tight font-heading">IMILab</h1>
             <p className="text-xs text-muted-foreground mt-0.5">Зуботехнічна лабораторія</p>
           </div>
         </div>
@@ -122,10 +122,10 @@ export default function Layout() {
           <div className="flex items-center gap-2">
             <img 
               src="https://media.base44.com/images/public/6a2586df519da133b2eddb2b/81b6f23b1_photo_2026-06-07_18-59-57.jpg" 
-              alt="IMI Lab" 
+              alt="IMILab"
               className="w-8 h-8 object-contain" 
             />
-            <h1 className="text-lg font-bold text-primary font-heading">IMI Lab</h1>
+            <h1 className="text-lg font-bold text-primary font-heading">IMILab</h1>
           </div>
           <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}

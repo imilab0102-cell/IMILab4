@@ -58,11 +58,17 @@ export default function PublicOrderView() {
         <div className="p-8 border-b-4" style={{ borderColor: template?.header_color || '#3b82f6' }}>
           <div className="flex flex-col md:flex-row justify-between items-start gap-6">
             <div>
-              {template?.logo_url && (
+              {template?.logo_url ? (
                 <img src={template.logo_url} alt="Logo" className="h-16 mb-4 object-contain grayscale" />
+              ) : (
+                <img
+                  src="https://media.base44.com/images/public/6a2586df519da133b2eddb2b/81b6f23b1_photo_2026-06-07_18-59-57.jpg"
+                  alt="IMILab"
+                  className="h-16 mb-4 object-contain grayscale"
+                />
               )}
               <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tight">
-                {template?.company_name || 'IMI.LAB'}
+                {template?.company_name || 'IMILab'}
               </h1>
               <div className="mt-2 text-xs text-slate-500 leading-relaxed max-w-xs">
                 {template?.company_address && <div>{template.company_address}</div>}
@@ -201,7 +207,7 @@ export default function PublicOrderView() {
         <div className="p-8 border-t border-slate-100 bg-slate-50/30 text-center">
           <p className="text-sm font-bold text-slate-700">{template?.footer_text || 'Дякуємо за довіру!'}</p>
           <div className="mt-6 flex flex-col items-center">
-            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mb-2">Звіт сформовано автоматично</div>
+            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mb-2">Звіт сформовано в IMILab</div>
             <div className="h-1.5 w-24 bg-blue-600 rounded-full"></div>
           </div>
         </div>

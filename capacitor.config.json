@@ -1,6 +1,6 @@
 {
   "appId": "com.imilab.app",
-  "appName": "IMI Lab4",
+  "appName": "IMILab",
   "webDir": "dist",
   "server": {
     "androidScheme": "https",

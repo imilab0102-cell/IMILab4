@@ -1,6 +1,6 @@
 {
-  "name": "IMI Lab",
-  "short_name": "IMI Lab",
+  "name": "IMILab",
+  "short_name": "IMILab",
   "start_url": ".",
   "display": "standalone",
   "theme_color": "#336699",
