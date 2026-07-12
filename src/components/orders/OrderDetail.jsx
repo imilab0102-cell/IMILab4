@@ -12,7 +12,7 @@ import { format, parseISO } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { 
   Calendar, UserRound, Building2, Wrench, Palette, Trash2, Save, 
-  Printer, Share2, Download, Image as ImageIcon, Coins, QrCode
+  Printer, Share2, Download, Image as ImageIcon, Coins, QrCode, X
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
