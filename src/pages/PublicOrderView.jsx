@@ -56,7 +56,7 @@ export default function PublicOrderView() {
       } catch (e) {
         const cached = localStorage.getItem('public_exchangeRates');
         if (cached) return JSON.parse(cached);
-        return { USD: 41.5, EUR: 44.5 }; // Фолбек якщо взагалі нічого немає
+        return { USD: 41.5, EUR: 44.5 };
       }
     },
     staleTime: 300000,
@@ -111,7 +111,6 @@ export default function PublicOrderView() {
   const discountPercent = parseFloat(order.manual_discount_percent) || parseFloat(order.doctor_discount) || 0;
   const rates = exchangeRates || { USD: 41.5, EUR: 44.5 };
 
-  // ВАЖЛИВО: Використовуємо ті ж самі назви полів, що і в OrderDetail.jsx
   const currentRates = {
     USD: rates.USD || 41.5,
     EUR: rates.EUR || 44.5
@@ -133,9 +132,9 @@ export default function PublicOrderView() {
     const toothShade = shades[number];
 
     return (
-      <div className="flex flex-col items-center min-w-[35px] md:min-w-[40px]">
-        <span className={`text-[9px] font-black mb-1 ${isSelected ? 'text-blue-600' : 'text-slate-300'}`}>{number}</span>
-        <div className={`relative w-8 h-10 flex items-center justify-center rounded-lg border transition-all ${isSelected ? 'bg-blue-50 border-blue-200 shadow-sm' : 'border-transparent'}`}>
+      <div className="flex flex-col items-center min-w-[32px] sm:min-w-[40px]">
+        <span className={`text-[8px] sm:text-[9px] font-black mb-1 ${isSelected ? 'text-blue-600' : 'text-slate-300'}`}>{number}</span>
+        <div className={`relative w-7 h-9 sm:w-8 sm:h-10 flex items-center justify-center rounded-lg border transition-all ${isSelected ? 'bg-blue-50 border-blue-200 shadow-sm' : 'border-transparent'}`}>
           <img
             src={imageSrc}
             alt={number}
@@ -152,274 +151,179 @@ export default function PublicOrderView() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 py-6 px-2 md:py-12 md:px-4 flex justify-center font-sans text-slate-800">
-      <div className="w-full max-w-[850px] bg-white shadow-[0_0_50px_rgba(0,0,0,0.1)] p-6 md:p-12 relative overflow-hidden min-h-[1100px]">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-20 overflow-x-hidden">
+      {/* Header Sticky */}
+      <div className="sticky top-0 z-30 bg-white/90 backdrop-blur-lg border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4 flex justify-between items-center shadow-sm">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-[9px] font-black uppercase text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full whitespace-nowrap">Наряд №{order.order_number}</span>
+            <span className="hidden sm:inline text-[9px] font-black uppercase text-slate-400">IMILab System</span>
+          </div>
+          <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight leading-none truncate pr-2">{order.patient_name || '—'}</h2>
+        </div>
+        <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center p-1.5 shadow-lg shrink-0">
+          <img
+            src="https://media.base44.com/images/public/6a2586df519da133b2eddb2b/81b6f23b1_photo_2026-06-07_18-59-57.jpg"
+            alt="Logo"
+            className="w-full h-full object-contain invert"
+          />
+        </div>
+      </div>
 
-        {/* TOP HEADER */}
-        <div className="flex flex-col md:flex-row justify-between items-start mb-10 gap-8">
-          <div className="flex-1 w-full">
-            <h1 className="text-4xl md:text-5xl font-black text-slate-800 tracking-tighter mb-6 uppercase">
-              ЗАМОВЛЕННЯ-НАРЯД
-            </h1>
-            <div className="space-y-4">
-              <div className="flex items-baseline gap-2">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Пацієнт (ПІБ):</span>
-                <div className="flex-1 border-b-2 border-slate-100 pb-1 font-black text-xl text-slate-900">
-                  {order.patient_name}
-                </div>
+      <div className="max-w-2xl mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
+        {/* Основна інформація - Картки */}
+        <div className="bg-white p-4 sm:p-5 rounded-[2rem] shadow-sm border border-slate-100 space-y-4">
+           <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shrink-0 text-lg">🏥</div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[9px] uppercase text-slate-400 font-black tracking-widest mb-0.5">Клініка</p>
+                <p className="font-bold text-slate-800 text-sm sm:text-base leading-tight break-words">{order.clinic_name || 'Приватна практика'}</p>
               </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Лікар (ПІБ):</span>
-                <div className="flex-1 border-b-2 border-slate-100 pb-1 font-bold text-slate-700">
-                  {order.doctor_name}
-                </div>
+           </div>
+           <div className="flex items-start gap-3 border-t border-slate-50 pt-4">
+              <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center shrink-0 text-lg">👨‍⚕️</div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[9px] uppercase text-slate-400 font-black tracking-widest mb-0.5">Лікар</p>
+                <p className="font-bold text-slate-800 text-sm sm:text-base leading-tight break-words">{order.doctor_name || '—'}</p>
               </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap text-blue-500">Дата поступлення:</span>
-                <div className="flex-1 border-b-2 border-blue-50 pb-1 font-bold text-blue-700">
-                  {order.creation_date ? format(parseISO(order.creation_date), 'dd.MM.yyyy') : '—'}
-                </div>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Клініка:</span>
-                <div className="flex-1 border-b-2 border-slate-100 pb-1 font-bold text-slate-700">
-                  {order.clinic_name}
-                </div>
-              </div>
+           </div>
+        </div>
+
+        <div className="bg-white p-4 sm:p-5 rounded-[2rem] shadow-sm border border-slate-100 grid grid-cols-2 gap-4">
+           <div className="space-y-1 border-r border-slate-100 pr-2">
+              <p className="text-[9px] uppercase text-slate-400 font-black tracking-widest">Поступлення</p>
+              <p className="font-bold text-slate-800 text-xs sm:text-sm">{order.creation_date ? format(parseISO(order.creation_date), 'dd.MM.yyyy') : '—'}</p>
+           </div>
+           <div className="space-y-1 pl-2 text-right sm:text-left">
+              <p className="text-[9px] uppercase text-slate-400 font-black tracking-widest">План здачі</p>
+              <p className="font-black text-blue-600 text-xs sm:text-sm">{order.due_date ? format(parseISO(order.due_date), 'dd.MM.yyyy') : '—'}</p>
+           </div>
+        </div>
+
+        {/* Схема зубів - Покращена адаптивність */}
+        <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
+          <div className="px-5 py-3 border-b bg-slate-50/50 flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-slate-500">
+            <span>Зубна карта (FDI)</span>
+            <div className="flex gap-4">
+              <span className="text-blue-500 font-black">R</span>
+              <span className="text-blue-500 font-black">L</span>
             </div>
           </div>
-          <div className="text-right flex flex-col items-end shrink-0">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center p-2 shadow-xl">
-                <img
-                  src="https://media.base44.com/images/public/6a2586df519da133b2eddb2b/81b6f23b1_photo_2026-06-07_18-59-57.jpg"
-                  alt="Logo"
-                  className="w-full h-full object-contain invert"
-                />
+          <div className="p-3 sm:p-6 overflow-x-auto flex justify-center bg-white">
+            <div className="flex flex-col gap-4 py-2 min-w-fit">
+              <div className="flex flex-col gap-2">
+                <div className="flex justify-center gap-0.5 sm:gap-1.5">
+                  <div className="flex gap-0.5">{UPPER_LEFT.map(num => <ToothIcon key={num} number={num} />)}</div>
+                  <div className="w-px h-10 bg-slate-100 self-center"></div>
+                  <div className="flex gap-0.5">{UPPER_RIGHT.map(num => <ToothIcon key={num} number={num} />)}</div>
+                </div>
               </div>
-              <div className="text-right">
-                <h2 className="text-3xl font-black tracking-tighter leading-none text-slate-900">IMILab</h2>
-                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-600 mt-1">digital dental system</p>
+              <div className="flex flex-col gap-2">
+                <div className="flex justify-center gap-0.5 sm:gap-1.5">
+                  <div className="flex gap-0.5">{LOWER_LEFT.map(num => <ToothIcon key={num} number={num} />)}</div>
+                  <div className="w-px h-10 bg-slate-100 self-center"></div>
+                  <div className="flex gap-0.5">{LOWER_RIGHT.map(num => <ToothIcon key={num} number={num} />)}</div>
+                </div>
               </div>
-            </div>
-            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed text-right">
-              <p>{template?.company_address}</p>
-              <p>тел. {template?.company_phone}</p>
-              <p className="text-blue-500">{template?.company_email}</p>
             </div>
           </div>
         </div>
 
-        <div className="border-2 border-sky-400 rounded-2xl p-4 md:p-6 mb-8 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase text-sky-500 tracking-wider">Кількість ложок</span>
-              <div className="flex-1 border-b border-sky-200 min-h-[20px]"></div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase text-sky-500 tracking-wider">Трансфер/гвинт</span>
-              <div className="flex-1 border-b border-sky-200 min-h-[20px]"></div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase text-sky-500 tracking-wider">Аналоги</span>
-              <div className="flex-1 border-b border-sky-200 min-h-[20px]"></div>
-            </div>
+        {/* Послуги - Компактний список як у наряді */}
+        <div className="bg-white rounded-[2rem] shadow-md border border-slate-100 overflow-hidden">
+          <div className="px-5 py-3 border-b bg-slate-900 flex justify-between items-center">
+            <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Перелік послуг</h3>
+            <span className="text-[9px] font-black text-white bg-white/10 px-2 py-0.5 rounded-md uppercase">{items.length} поз.</span>
           </div>
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase text-sky-500 tracking-wider">Абатменти</span>
-              <div className="flex-1 border-b border-sky-200 min-h-[20px]"></div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase text-sky-500 tracking-wider">Лицьова дуга</span>
-              <div className="flex-1 border-b border-sky-200 min-h-[20px]"></div>
-            </div>
-          </div>
-        </div>
-
-        {/* WORK SCHEMA - MOBILE ADAPTIVE */}
-        <div className="border-4 border-slate-900 rounded-[2.5rem] p-4 md:p-10 mb-8 bg-slate-50/50">
-          <div className="text-center mb-6 md:mb-8">
-            <h3 className="text-xs font-black uppercase text-slate-900 tracking-[0.3em] inline-block border-b-2 border-slate-900 pb-1">Схема роботи</h3>
+          <div className="divide-y divide-slate-50">
+            {items.map((item, idx) => (
+              <div key={idx} className="px-4 py-3 sm:px-6 sm:py-4 flex justify-between items-center hover:bg-slate-50 transition-colors">
+                <div className="min-w-0 flex-1 mr-4">
+                  <p className="font-bold text-slate-800 text-xs sm:text-sm leading-snug break-words">{item.service_name || item.name}</p>
+                  <p className="text-[8px] sm:text-[9px] text-blue-500 font-black uppercase tracking-wider mt-0.5">
+                    {item.teeth_numbers ? `Зуби: ${item.teeth_numbers}` : 'Загальна робота'} • x{item.quantity || 1}
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="font-black text-slate-900 text-sm sm:text-base">{(item.unit_price * (item.quantity || 1)).toLocaleString()} {getCurrencySymbol(item.price_currency)}</p>
+                </div>
+              </div>
+            ))}
           </div>
 
-          <div className="flex flex-col gap-6 md:gap-8">
-            {/* Top Row - Split on mobile */}
-            <div className="flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-2">
-              <div className="flex justify-center gap-1">{UPPER_LEFT.map(num => <ToothIcon key={num} number={num} />)}</div>
-              <div className="hidden sm:block w-px h-8 bg-slate-200 mx-1"></div>
-              <div className="flex justify-center gap-1">{UPPER_RIGHT.map(num => <ToothIcon key={num} number={num} />)}</div>
-            </div>
+          {/* Фінансовий підсумок - Темний блок */}
+          <div className="bg-slate-950 p-5 sm:p-8">
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Розрахунок</p>
+                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-500/10 rounded-full border border-emerald-500/20">
+                  <div className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-[8px] font-black text-emerald-400 uppercase tracking-widest">{order.payment_status || 'Очікує'}</span>
+                </div>
+              </div>
 
-            <div className="h-px bg-slate-200 w-full relative">
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-4 text-[8px] md:text-[10px] font-black text-slate-300 tracking-widest uppercase whitespace-nowrap">Dental Chart</div>
-            </div>
-
-            {/* Bottom Row - Split on mobile */}
-            <div className="flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-2">
-              <div className="flex justify-center gap-1">{LOWER_LEFT.map(num => <ToothIcon key={num} number={num} />)}</div>
-              <div className="hidden sm:block w-px h-8 bg-slate-200 mx-1"></div>
-              <div className="flex justify-center gap-1">{LOWER_RIGHT.map(num => <ToothIcon key={num} number={num} />)}</div>
-            </div>
-          </div>
-
-          <div className="mt-8 flex justify-center gap-6 md:gap-10 text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-blue-500" />
-              <span>Ліва сторона (R)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span>Права сторона (L)</span>
-              <div className="w-2 h-2 rounded-full bg-blue-500" />
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-          <div className="space-y-6">
-            <div className="bg-white border-2 border-slate-100 rounded-[2rem] p-6 shadow-sm">
-               <h3 className="text-[11px] font-black uppercase text-slate-400 tracking-widest mb-4">Технічні деталі</h3>
-               <div className="space-y-3">
-                 {Object.entries(shades).map(([tooth, s]) => (
-                   <div key={tooth} className="flex items-center justify-between text-sm">
-                     <span className="font-black text-blue-600">Зуб {tooth}:</span>
-                     <span className="font-bold text-slate-700">
-                       {s.neck ? `Шийка: ${s.neck}` : ''} {s.incisal ? ` | Край: ${s.incisal}` : ''}
-                     </span>
-                   </div>
-                 ))}
-                 {Object.keys(shades).length === 0 && <p className="text-xs text-slate-400 italic">Специфічні кольори не вказані</p>}
-               </div>
-               <div className="space-y-3 pt-4 border-t border-slate-100 mt-4">
-                  <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 border border-slate-300 rounded"></div>
-                      <span>Примірка каркаса</span>
-                    </div>
+              <div className="space-y-2 py-2">
+                {Object.entries(finalTotals).map(([cur, val]) => (
+                  <div key={cur} className="flex justify-between items-center">
+                    <span className="text-[10px] font-bold uppercase text-slate-500">{cur}:</span>
+                    <span className="text-lg sm:text-xl font-black text-white tracking-tighter">{val.toLocaleString()} {getCurrencySymbol(cur)}</span>
                   </div>
-                  <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 border border-slate-300 rounded"></div>
-                      <span>Примірка без глазурі</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase">
-                    <div className="w-3 h-3 border border-slate-300 rounded"></div>
-                    <span>Без примірки</span>
-                  </div>
-               </div>
-            </div>
-            <div className="bg-slate-900 text-white rounded-[2rem] p-6 shadow-xl">
-               <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-4">Матеріал</h3>
-               <div className="grid grid-cols-1 gap-3">
-                  {(() => {
-                    const materialKeywords = ['ZrO2', 'E-Max', 'CoCr', 'PMMA'];
-                    const detected = materialKeywords.filter(mat =>
-                      items.some(item =>
-                        (item.service_name || '').toLowerCase().includes(mat.toLowerCase()) ||
-                        (item.name || '').toLowerCase().includes(mat.toLowerCase())
-                      )
-                    );
-
-                    if (detected.length === 0) {
-                      return <p className="text-[10px] text-slate-500 italic">Не вказано в послугах</p>;
-                    }
-
-                    return detected.map(m => (
-                      <div key={m} className="flex items-center gap-3">
-                         <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center text-[10px] font-black shadow-lg shadow-blue-900/50">✓</div>
-                         <span className="text-sm font-black uppercase tracking-wider">{m}</span>
-                      </div>
-                    ));
-                  })()}
-               </div>
-            </div>
-          </div>
-
-          <div className="bg-blue-600 rounded-[2.5rem] p-8 text-white shadow-2xl shadow-blue-200 flex flex-col justify-between">
-            <div>
-               <h3 className="text-xs font-black uppercase text-blue-200 tracking-[0.2em] mb-6">Розрахунок у валютах</h3>
-               <div className="space-y-4">
-                 {Object.entries(finalTotals).map(([cur, val]) => (
-                   <div key={cur} className="flex justify-between items-baseline border-b border-blue-500/50 pb-2">
-                     <span className="text-xs font-bold uppercase text-blue-100">{cur}:</span>
-                     <span className="text-2xl font-black">{val.toLocaleString()} {getCurrencySymbol(cur)}</span>
-                   </div>
-                 ))}
-               </div>
-            </div>
-            <div className="mt-8 pt-4 border-t-2 border-blue-400/50">
-               <div className="flex justify-between items-baseline">
-                 <span className="text-xs font-black uppercase text-blue-100">Разом у гривні:</span>
-                 <div className="text-right">
-                    <span className="text-4xl font-black leading-none">{totalInUah.toLocaleString()}</span>
-                    <span className="text-lg font-black ml-1 uppercase">грн</span>
-                 </div>
-               </div>
-               <div className="mt-2 flex items-center gap-2 text-[8px] font-bold text-blue-100 uppercase tracking-widest opacity-60">
-                 <Coins className="w-3 h-3" /> Курси: USD {currentRates.USD} | EUR {currentRates.EUR}
-               </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="mb-10 overflow-hidden rounded-[2.5rem] border-2 border-slate-100 shadow-sm">
-           <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                  <th className="p-6">№</th>
-                  <th className="p-6">Найменування послуги</th>
-                  <th className="p-6 text-center">К-сть</th>
-                  <th className="p-6 text-right">Сума</th>
-                </tr>
-              </thead>
-              <tbody className="text-sm font-bold text-slate-700 divide-y divide-slate-50">
-                {items.map((item, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="p-6 text-slate-300 font-black">{idx + 1}</td>
-                    <td className="p-6">
-                      <p className="font-black text-slate-800 tracking-tight">{item.service_name || item.name}</p>
-                      {item.teeth_numbers && <span className="text-[10px] text-blue-500 font-black uppercase">Зуб: {item.teeth_numbers}</span>}
-                    </td>
-                    <td className="p-6 text-center font-black text-slate-900">x{item.quantity || 1}</td>
-                    <td className="p-6 text-right font-black text-slate-900">
-                      {(item.unit_price * (item.quantity || 1)).toLocaleString()} {getCurrencySymbol(item.price_currency)}
-                    </td>
-                  </tr>
                 ))}
-              </tbody>
-           </table>
-        </div>
+              </div>
 
-        <div className="space-y-10 mt-12">
-          <div className="bg-slate-50 p-6 rounded-3xl border-2 border-dashed border-slate-200">
-            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">Примітки:</span>
-            <p className="text-sm italic text-slate-600 leading-relaxed font-medium">
-               {order.notes || 'Додаткові вказівки відсутні'}
-            </p>
-          </div>
+              <div className="pt-4 border-t border-white/10 flex justify-between items-baseline">
+                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Разом до сплати:</span>
+                <div className="text-right">
+                  <span className="text-3xl sm:text-4xl font-black text-white tracking-tighter leading-none">{totalInUah.toLocaleString()}</span>
+                  <span className="text-sm font-black text-blue-400 ml-1 uppercase">грн</span>
+                </div>
+              </div>
 
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6 py-6 border-t border-slate-100">
-             <div className="flex flex-col items-center md:items-start gap-1">
-               <span className="text-[10px] font-black uppercase text-slate-300 tracking-widest">Дата поступлення</span>
-               <div className="w-40 border-b-2 border-slate-100 h-6 text-center font-bold text-slate-800">
-                 {order.creation_date ? format(parseISO(order.creation_date), 'dd.MM.yyyy') : ''}
-               </div>
-             </div>
-             <div className="flex flex-col items-center md:items-end gap-1">
-               <span className="text-[10px] font-black uppercase text-slate-300 tracking-widest">Дата здачі (план)</span>
-               <div className="w-40 border-b-2 border-slate-100 h-6 text-center font-bold text-slate-800">
-                 {order.due_date ? format(parseISO(order.due_date), 'dd.MM.yyyy') : ''}
-               </div>
-             </div>
-          </div>
-
-          <div className="text-center">
-             <p className="text-[10px] text-slate-300 font-black uppercase tracking-[0.6em]">IMILab DIGITAL DENTAL SYSTEM</p>
+              <div className="mt-4 pt-3 border-t border-white/5 flex flex-wrap gap-x-4 gap-y-2 opacity-40">
+                <div className="flex items-center gap-1.5">
+                   <Coins className="w-3 h-3 text-slate-400" />
+                   <span className="text-[8px] font-bold text-slate-300 uppercase tracking-wider">USD: {currentRates.USD}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                   <Coins className="w-3 h-3 text-slate-400" />
+                   <span className="text-[8px] font-bold text-slate-300 uppercase tracking-wider">EUR: {currentRates.EUR}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="absolute top-0 right-0 w-3 h-full bg-blue-600"></div>
+        {/* Додаткові деталі */}
+        <div className="grid grid-cols-1 gap-4">
+           {Object.keys(shades).length > 0 && (
+             <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100">
+                <p className="text-[9px] font-black uppercase text-blue-600 tracking-widest mb-3 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-600" /> Розколірка VITA
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5">
+                  {Object.entries(shades).map(([tooth, s]) => (
+                    <div key={tooth} className="flex items-center justify-between text-[11px] py-1 border-b border-slate-50">
+                      <span className="font-black text-blue-600 uppercase">Зуб {tooth}</span>
+                      <span className="font-bold text-slate-700">{s.neck ? `Ш: ${s.neck}` : ''} {s.incisal ? ` | К: ${s.incisal}` : ''}</span>
+                    </div>
+                  ))}
+                </div>
+             </div>
+           )}
+
+           <div className="bg-amber-50/40 p-5 rounded-[2rem] border border-amber-100/60">
+              <p className="text-[9px] font-black uppercase text-amber-600 tracking-widest mb-2 flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-600" /> Коментарі
+              </p>
+              <p className="text-[11px] text-slate-600 leading-relaxed font-medium italic">
+                {order.notes || 'Додаткові вказівки відсутні'}
+              </p>
+           </div>
+        </div>
+
+        <div className="text-center pt-8 pb-4 opacity-30">
+           <p className="text-[8px] text-slate-400 font-black uppercase tracking-[0.4em]">IMILab Digital Dental System</p>
+        </div>
       </div>
     </div>
   );
