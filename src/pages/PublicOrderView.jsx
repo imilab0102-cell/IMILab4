@@ -240,13 +240,27 @@ export default function PublicOrderView() {
             </div>
             <div className="bg-slate-900 text-white rounded-[2rem] p-6 shadow-xl">
                <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-4">Материал</h3>
-               <div className="grid grid-cols-2 gap-3">
-                  {['ZrO2', 'E-Max', 'CoCr', 'PMMA'].map(m => (
-                    <div key={m} className="flex items-center gap-2">
-                       <div className="w-4 h-4 rounded-full border border-slate-700 flex items-center justify-center text-[8px] font-black">✓</div>
-                       <span className="text-xs font-bold uppercase">{m}</span>
-                    </div>
-                  ))}
+               <div className="grid grid-cols-1 gap-3">
+                  {(() => {
+                    const materialKeywords = ['ZrO2', 'E-Max', 'CoCr', 'PMMA'];
+                    const detected = materialKeywords.filter(mat =>
+                      items.some(item =>
+                        (item.service_name || '').toLowerCase().includes(mat.toLowerCase()) ||
+                        (item.name || '').toLowerCase().includes(mat.toLowerCase())
+                      )
+                    );
+
+                    if (detected.length === 0) {
+                      return <p className="text-[10px] text-slate-500 italic">Не указано в услугах</p>;
+                    }
+
+                    return detected.map(m => (
+                      <div key={m} className="flex items-center gap-3">
+                         <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center text-[10px] font-black shadow-lg shadow-blue-900/50">✓</div>
+                         <span className="text-sm font-black uppercase tracking-wider">{m}</span>
+                      </div>
+                    ));
+                  })()}
                </div>
             </div>
           </div>
