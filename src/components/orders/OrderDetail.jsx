@@ -212,6 +212,11 @@ export default function OrderDetail({ order, open, onClose, onEdit, onDuplicate,
         <div style="text-align:center; margin-top:20px; border-top:2px solid #000; padding-top:10px;">
           <div style="font-size:10px; font-weight:bold; margin-bottom:4px;">${tpl.thanks_text || 'Дякуємо за співпрацю!'}</div>
           <div style="font-size:11px; font-weight:900;">${tpl.contacts || ''}</div>
+
+          <div style="margin-top:15px; display:flex; flex-direction:column; align-items:center;">
+             <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https://imi-lab4.vercel.app/p/order/${order.id}" style="width:30mm; height:30mm; margin-bottom:5px;" />
+             <div style="font-size:7px; color:#666; font-family:monospace;">SCAN TO VIEW DIGITAL CASE</div>
+          </div>
         </div>
       </body>
       </html>

@@ -377,20 +377,31 @@ export default function PublicOrderView() {
         </div>
 
         {/* Laboratory Info / Footer */}
-        <div className="pt-10 border-t border-slate-100 space-y-4">
-           <div className="flex flex-col items-center text-center space-y-3">
-              <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center p-2 grayscale opacity-50">
-                <img
-                  src="https://media.base44.com/images/public/6a2586df519da133b2eddb2b/81b6f23b1_photo_2026-06-07_18-59-57.jpg"
-                  alt="Logo"
-                  className="w-full h-full object-contain"
-                />
+        <div className="pt-10 border-t border-slate-100 space-y-6">
+           <div className="flex flex-col items-center text-center space-y-4">
+              <div className="p-3 bg-white border border-slate-100 rounded-2xl shadow-sm">
+                 <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=https://imi-lab4.vercel.app/p/order/${order.id}`}
+                    alt="QR"
+                    className="w-20 h-20"
+                 />
+                 <p className="text-[7px] font-black text-slate-300 mt-2 tracking-widest uppercase">Digital Case ID</p>
               </div>
-              <div className="space-y-1">
-                <p className="text-[10px] font-black uppercase text-slate-800 tracking-widest">Цифрова лабораторія IMILab</p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
-                  {template?.company_address} • тел. {template?.company_phone}
-                </p>
+
+              <div className="flex flex-col items-center space-y-2">
+                <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center p-2 grayscale opacity-40">
+                  <img
+                    src="https://media.base44.com/images/public/6a2586df519da133b2eddb2b/81b6f23b1_photo_2026-06-07_18-59-57.jpg"
+                    alt="Logo"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black uppercase text-slate-800 tracking-widest">Цифрова лабораторія IMILab</p>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
+                    {template?.company_address} • тел. {template?.company_phone}
+                  </p>
+                </div>
               </div>
            </div>
            <div className="text-center opacity-20">
