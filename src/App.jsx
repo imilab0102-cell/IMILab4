@@ -68,6 +68,7 @@ const AppRoutes = () => {
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  const location = useLocation();
 
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
@@ -80,7 +81,10 @@ const AuthenticatedApp = () => {
     );
   }
 
-  if (authError) {
+  // Не редиректимо на логін, якщо шлях публічний (починається на /p/)
+  const isPublicPath = location.pathname.startsWith('/p/');
+
+  if (authError && !isPublicPath) {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required') {

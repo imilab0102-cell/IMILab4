@@ -82,7 +82,9 @@ export default function PublicOrderView() {
               </div>
               <div className="space-y-1">
                 <p className="text-lg font-bold text-slate-800">№{order.order_number}</p>
-                <p className="text-xs font-bold text-slate-400 uppercase">від {format(parseISO(order.creation_date), 'dd.MM.yyyy')}</p>
+                <p className="text-xs font-bold text-slate-400 uppercase">
+                  від {order.creation_date ? format(parseISO(order.creation_date), 'dd.MM.yyyy') : '—'}
+                </p>
               </div>
             </div>
           </div>
