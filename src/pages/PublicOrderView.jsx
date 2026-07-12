@@ -45,7 +45,20 @@ export default function PublicOrderView() {
 
   const { data: exchangeRates } = useQuery({
     queryKey: ['exchangeRates'],
-    queryFn: fetchExchangeRates,
+    queryFn: async () => {
+      try {
+        const rates = await fetchExchangeRates();
+        if (rates && rates.USD > 10) {
+          localStorage.setItem('public_exchangeRates', JSON.stringify(rates));
+          return rates;
+        }
+        throw new Error('Invalid rates from API');
+      } catch (e) {
+        const cached = localStorage.getItem('public_exchangeRates');
+        if (cached) return JSON.parse(cached);
+        return { USD: 41.5, EUR: 44.5 }; // Фолбек якщо взагалі нічого немає
+      }
+    },
     staleTime: 300000,
   });
 
