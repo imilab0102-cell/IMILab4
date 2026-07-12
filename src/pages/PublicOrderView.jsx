@@ -285,7 +285,9 @@ export default function PublicOrderView() {
                 {Object.entries(finalTotals).map(([cur, val]) => (
                   <div key={cur} className="flex justify-between items-center">
                     <span className="text-[10px] font-bold uppercase text-slate-500">{cur}:</span>
-                    <span className="text-lg sm:text-xl font-black text-white tracking-tighter">{val.toLocaleString()} {getCurrencySymbol(cur)}</span>
+                    <span className="text-lg sm:text-xl font-black text-white tracking-tighter">
+                      {Math.round(val).toLocaleString()} {getCurrencySymbol(cur)}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -293,7 +295,9 @@ export default function PublicOrderView() {
               <div className="pt-4 border-t border-white/10 flex justify-between items-baseline">
                 <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Разом до сплати:</span>
                 <div className="text-right">
-                  <span className="text-3xl sm:text-4xl font-black text-white tracking-tighter leading-none">{totalInUah.toLocaleString()}</span>
+                  <span className="text-3xl sm:text-4xl font-black text-white tracking-tighter leading-none">
+                    {Math.round(totalInUah).toLocaleString()}
+                  </span>
                   <span className="text-sm font-black text-blue-400 ml-1 uppercase">грн</span>
                 </div>
               </div>
