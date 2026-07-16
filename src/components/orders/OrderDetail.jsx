@@ -652,15 +652,15 @@ export default function OrderDetail({ order, open, onClose, onEdit, onDuplicate,
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="max-w-2xl w-[95vw] max-h-[92vh] overflow-y-auto p-0 border-none bg-white rounded-3xl shadow-2xl">
-        <div className="px-6 py-5 border-b flex justify-between items-center bg-white sticky top-0 z-20">
+      <DialogContent className="max-w-2xl w-[95vw] max-h-[92vh] overflow-y-auto p-0 border-none bg-white rounded-3xl shadow-2xl overflow-x-hidden">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white sticky top-0 z-20">
           <div>
             <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
               Наряд #{order.order_number}
             </h2>
             <p className="text-xs text-slate-500 font-medium">{order.patient_name}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
             <Select value={printCurrency} onValueChange={setPrintCurrency}>
               <SelectTrigger className="w-24 h-9 rounded-full bg-slate-50 border-slate-200 text-[10px] font-bold">
                 <SelectValue />
@@ -676,14 +676,14 @@ export default function OrderDetail({ order, open, onClose, onEdit, onDuplicate,
             <Button size="icon" variant="ghost" className="rounded-full hover:bg-slate-100" onClick={handleSaveReceiptAsImage} title="Зберегти чек як фото"><ImageIcon className="w-4 h-4 text-blue-600" /></Button>
             <Button size="icon" variant="ghost" className="rounded-full hover:bg-slate-100" onClick={() => setQrOpen(true)} title="Показати QR-код наряду"><QrCode className="w-4 h-4 text-slate-600" /></Button>
             <Button size="icon" variant="ghost" className="rounded-full hover:bg-slate-100" onClick={handleDownloadA4Pdf} title="Роздрукувати наряд (A4 PDF)"><FileText className="w-4 h-4 text-blue-600" /></Button>
-            <div className="w-px h-6 bg-slate-200 mx-1" />
+            <div className="hidden sm:block w-px h-6 bg-slate-200 mx-1" />
             <Button size="icon" variant="ghost" className="rounded-full hover:bg-red-50 hover:text-red-500" onClose={onClose} onClick={onClose} title="Закрити"><X className="w-5 h-5" /></Button>
           </div>
         </div>
 
-        <div className="p-6 space-y-8">
+        <div className="p-4 sm:p-6 space-y-8">
           {/* Основна інформація */}
-          <div className="grid grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8">
             <div className="space-y-1">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Клініка</p>
               <p className="text-sm font-semibold text-slate-700">{order.clinic_name || '—'}</p>
@@ -824,7 +824,21 @@ export default function OrderDetail({ order, open, onClose, onEdit, onDuplicate,
               </div>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex gap-2 sm:gap-3">
+              {isAdmin && (
+                <Button
+                  variant="outline"
+                  className="h-12 w-12 border-2 border-red-100 text-red-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 rounded-xl shrink-0 transition-colors"
+                  onClick={() => {
+                    if (window.confirm('Ви дійсно хочете видалити цей наряд? Цю дію неможливо буде скасувати.')) {
+                      onDelete(order.id);
+                    }
+                  }}
+                  title="Видалити наряд"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </Button>
+              )}
               <Button
                 className="flex-1 h-12 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-all active:scale-[0.98]"
                 onClick={() => saveMutation.mutate({ id: order.id, newStatus: status, newPaymentStatus: paymentStatus })}
@@ -837,7 +851,7 @@ export default function OrderDetail({ order, open, onClose, onEdit, onDuplicate,
                 className="flex-1 h-12 border-2 font-bold rounded-xl"
                 onClick={() => { onClose(); onEdit(order); }}
               >
-                Редагувати все
+                Редагувати
               </Button>
             </div>
           </div>
