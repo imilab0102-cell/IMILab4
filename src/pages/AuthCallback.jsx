@@ -8,40 +8,50 @@ export default function AuthCallback() {
 
   useEffect(() => {
     const handleCallback = async () => {
-      // Supabase автоматично підхоплює токени з URL (хешу або query)
-      // Але в мобільному додатку нам потрібно дати йому мить, щоб обробити нову адресу
       try {
-        console.log('AuthCallback: checking session...');
+        console.log('AuthCallback: checking for tokens in URL...');
 
-        // Спочатку спробуємо отримати сесію напряму
-        const { data: { session }, error } = await supabase.auth.getSession();
+        // В Capacitor хеш може бути частиною URL
+        const hash = window.location.hash || '';
+        const params = new URLSearchParams(hash.replace('#', '?'));
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
+
+        if (accessToken && refreshToken) {
+          console.log('AuthCallback: tokens found in hash, setting session...');
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          });
+          if (error) throw error;
+        }
+
+        // Тепер перевіряємо чи є сесія
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
-        if (error) {
-          console.error('Помилка отримання сесії:', error);
+        if (sessionError) {
+          console.error('Помилка отримання сесії:', sessionError);
           navigate('/login');
           return;
         }
 
         if (session) {
-          console.log('Session found, navigating to dashboard');
+          console.log('Session established, navigating home');
           navigate('/', { replace: true });
         } else {
-          // Якщо сесії немає, можливо токени ще в URL
-          // Supabase auth слухає зміни в URL автоматично,
-          // тому ми просто почекаємо трохи і спробуємо ще раз
-          console.log('No session yet, waiting for tokens...');
+          // Якщо все ще немає, почекаємо ще трохи
           setTimeout(async () => {
             const { data: { session: retrySession } } = await supabase.auth.getSession();
             if (retrySession) {
               navigate('/', { replace: true });
             } else {
-              console.warn('Still no session after timeout');
+              console.warn('Authentication failed: no session after tokens check');
               navigate('/login');
             }
-          }, 1000);
+          }, 1500);
         }
       } catch (err) {
-        console.error('Неочікувана помилка:', err);
+        console.error('Неочікувана помилка при обробці входу:', err);
         navigate('/login');
       }
     };

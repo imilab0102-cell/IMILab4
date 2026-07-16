@@ -116,7 +116,9 @@ export const AuthProvider = ({ children }) => {
       setIsLoadingAuth(true);
       setAuthError(null);
 
-      const redirectTo = window.location.origin + '/auth/callback';
+      const redirectTo = window.Capacitor
+        ? 'com.imilab.app://auth/callback'
+        : window.location.origin + '/auth/callback';
       
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',

@@ -1,7 +1,8 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { App as CapApp } from '@capacitor/app';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
@@ -69,6 +70,32 @@ const AppRoutes = () => {
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Обробка глибоких посилань (Deep Links) для Capacitor
+    const setupDeepLinks = async () => {
+      CapApp.addListener('appUrlOpen', (event) => {
+        console.log('App opened with URL:', event.url);
+
+        // Вилучаємо схему (com.imilab.app://) щоб отримати шлях
+        const slug = event.url.split('://').pop();
+
+        if (slug) {
+          // Навігуємо React Router на потрібний шлях (наприклад, /auth/callback)
+          navigate('/' + slug);
+        }
+      });
+    };
+
+    if (window.Capacitor) {
+      setupDeepLinks();
+    }
+
+    return () => {
+      CapApp.removeAllListeners();
+    };
+  }, [navigate]);
 
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
