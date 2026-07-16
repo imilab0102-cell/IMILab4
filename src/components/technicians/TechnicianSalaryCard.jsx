@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Pencil, Trash2, Phone, UserCheck, UserX, Wallet, Wrench, Plus, Loader2 } from 'lucide-react';
+import { Pencil, Trash2, Phone, UserCheck, UserX, Wallet, Wrench, Plus, Loader2, Coins } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 
 // Уніфікований список категорій — має співпадати з TechnicianServicesTab.jsx
 const CATEGORIES = [
@@ -28,7 +29,9 @@ export default function TechnicianSalaryCard({ technician, onEdit, onDelete }) {
 
   const qc = useQueryClient();
   const [servicesOpen, setServicesOpen] = useState(false);
+  const [adjustmentsOpen, setAdjustmentsOpen] = useState(false);
   const [newService, setNewService] = useState(emptyService);
+  const [newAdjustment, setNewAdjustment] = useState({ description: '', amount: '' });
 
   const { data: services = [], isLoading: servicesLoading } = useQuery({
     queryKey: ['technician-services', technician.id],
@@ -76,6 +79,52 @@ export default function TechnicianSalaryCard({ technician, onEdit, onDelete }) {
     onError: (error) => alert(`Помилка видалення: ${error.message}`)
   });
 
+  // Ручні коригування (одноразові послуги)
+  const { data: adjustments = [], isLoading: adjLoading } = useQuery({
+    queryKey: ['technician-adjustments', technician.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('technician_adjustment')
+        .select('*')
+        .eq('technician_id', technician.id)
+        .eq('is_paid', false)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: adjustmentsOpen
+  });
+
+  const addAdjustmentMutation = useMutation({
+    mutationFn: async (payload) => {
+      const { data, error } = await supabase
+        .from('technician_adjustment')
+        .insert([{
+          technician_id: technician.id,
+          description: payload.description,
+          amount: Number(payload.amount) || 0,
+          is_paid: false
+        }])
+        .select();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['technician-adjustments', technician.id] });
+      setNewAdjustment({ description: '', amount: '' });
+    },
+    onError: (error) => alert(`Помилка: ${error.message}`)
+  });
+
+  const deleteAdjustmentMutation = useMutation({
+    mutationFn: async (id) => {
+      const { error } = await supabase.from('technician_adjustment').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['technician-adjustments', technician.id] }),
+    onError: (error) => alert(`Помилка: ${error.message}`)
+  });
+
   return (
     <Card className={`overflow-hidden border-l-4 transition-all duration-200 ${
       technician.is_active ? 'border-l-green-500' : 'border-l-gray-300 opacity-75'
@@ -112,14 +161,24 @@ export default function TechnicianSalaryCard({ technician, onEdit, onDelete }) {
             </div>
           </div>
 
-          <Button 
-            type="button" 
-            variant="outline" 
-            className="w-full h-9 text-xs gap-1.5 bg-blue-50/50 text-blue-600 border-blue-100 hover:bg-blue-50"
-            onClick={() => setServicesOpen(true)}
-          >
-            <Wrench className="w-3.5 h-3.5" /> Налаштувати послуги техніка
-          </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-9 text-[10px] gap-1 bg-blue-50/50 text-blue-600 border-blue-100 hover:bg-blue-50"
+              onClick={() => setServicesOpen(true)}
+            >
+              <Wrench className="w-3 h-3" /> Прайс
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-9 text-[10px] gap-1 bg-amber-50/50 text-amber-600 border-amber-100 hover:bg-amber-50"
+              onClick={() => setAdjustmentsOpen(true)}
+            >
+              <Coins className="w-3 h-3" /> Коригування
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t pt-3">
@@ -245,6 +304,72 @@ export default function TechnicianSalaryCard({ technician, onEdit, onDelete }) {
             ))}
             {!servicesLoading && services.length === 0 && (
               <p className="text-center text-xs text-gray-400 py-4">Немає доданих персональних послуг.</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={adjustmentsOpen} onOpenChange={setAdjustmentsOpen}>
+        <DialogContent className="max-w-md w-full">
+          <DialogHeader>
+            <DialogTitle>Разові виплати / Коригування: {technician.full_name}</DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={(e) => { e.preventDefault(); addAdjustmentMutation.mutate(newAdjustment); }} className="space-y-3 bg-amber-50/50 p-3 rounded-md border border-amber-200">
+            <div className="text-xs font-bold text-amber-800">Додати нову одноразову виплату:</div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Опис (напр. Бонус)"
+                value={newAdjustment.description}
+                onChange={e => setNewAdjustment({...newAdjustment, description: e.target.value})}
+                required
+                className="h-9 text-sm bg-white"
+              />
+              <Input
+                type="number"
+                placeholder="Сума"
+                value={newAdjustment.amount}
+                onChange={e => setNewAdjustment({...newAdjustment, amount: e.target.value})}
+                required
+                className="w-24 h-9 text-sm bg-white"
+              />
+            </div>
+            <Button
+              type="submit"
+              disabled={addAdjustmentMutation.isPending}
+              className="w-full h-8 text-xs bg-amber-600 text-white hover:bg-amber-700 gap-1"
+            >
+              {addAdjustmentMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+              Додати до наступного звіту
+            </Button>
+          </form>
+
+          <div className="space-y-2 max-h-[220px] overflow-y-auto pt-2">
+            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Очікують виплати у звіті:</div>
+            {adjLoading ? (
+              <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-gray-400" /></div>
+            ) : adjustments.map((a) => (
+              <div key={a.id} className="flex items-center justify-between p-2 bg-white border rounded-sm text-xs shadow-sm">
+                <div>
+                  <div className="font-bold text-gray-800">{a.description}</div>
+                  <div className="text-[10px] text-gray-400">{format(parseISO(a.created_at), 'dd.MM.yyyy')}</div>
+                </div>
+                <div className="flex items-center gap-3">
+                   <span className="font-black text-amber-600">+{a.amount} ₴</span>
+                   <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-red-400 hover:text-red-600"
+                    onClick={() => { if(confirm('Видалити це коригування?')) deleteAdjustmentMutation.mutate(a.id); }}
+                   >
+                    <Trash2 className="w-3.5 h-3.5" />
+                   </Button>
+                </div>
+              </div>
+            ))}
+            {!adjLoading && adjustments.length === 0 && (
+              <p className="text-center text-xs text-gray-400 py-6">Коригувань немає.</p>
             )}
           </div>
         </DialogContent>

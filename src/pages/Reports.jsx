@@ -317,8 +317,7 @@ export default function Reports() {
               ${t.logo_url ? `<img src="${t.logo_url}" style="height: 60px; margin-bottom: 10px; object-fit: contain;" />` : ''}
               <h1 style="margin: 0; font-size: 24px; color: ${t.header_color || '#3b82f6'}; text-transform: uppercase;">${t.company_name || 'IMI.LAB'}</h1>
               <div style="font-size: 11px; color: #64748b; margin-top: 5px;">
-                ${t.company_address ? `<div>${t.company_address}</div>` : ''}
-                ${t.company_phone ? `<div>Тел: ${t.company_phone}</div>` : ''}
+                ${t.company_address ? `<div>${t.company_address.split('•')[0].trim()}</div>` : ''}
                 ${t.company_email ? `<div>Email: ${t.company_email}</div>` : ''}
                 ${t.show_company_code && t.company_code ? `<div>Код: ${t.company_code}</div>` : ''}
               </div>

@@ -12,7 +12,7 @@ import { format, parseISO } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { 
   Calendar, UserRound, Building2, Wrench, Palette, Trash2, Save, 
-  Printer, Share2, Download, Image as ImageIcon, Coins, QrCode, X
+  Printer, Share2, Image as ImageIcon, Coins, QrCode, X, FileText
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -21,6 +21,19 @@ import { registerPlugin } from '@capacitor/core';
 import { fetchExchangeRates } from '@/api/currencyService.js';
 
 const FunPrint = registerPlugin('FunPrint');
+
+const UPPER_LEFT = [18, 17, 16, 15, 14, 13, 12, 11];
+const UPPER_RIGHT = [21, 22, 23, 24, 25, 26, 27, 28];
+const LOWER_LEFT = [48, 47, 46, 45, 44, 43, 42, 41];
+const LOWER_RIGHT = [31, 32, 33, 34, 35, 36, 37, 38];
+
+const getToothImage = (num) => {
+  try {
+    return new URL(`../../assets/teeth/${num}.png`, import.meta.url).href;
+  } catch (e) {
+    return null;
+  }
+};
 
 const PAYMENT_STATUS_STYLES = {
   'Оплачено': 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100',
@@ -34,6 +47,7 @@ export default function OrderDetail({ order, open, onClose, onEdit, onDuplicate,
   const [paymentStatus, setPaymentStatus] = useState(order?.payment_status || 'Борг');
   const [exchangeRates, setExchangeRates] = useState({ USD: 41.5, EUR: 44.5 });
   const [qrOpen, setQrOpen] = useState(false);
+  const [printCurrency, setPrintCurrency] = useState('UAH');
 
   useEffect(() => {
     const loadRates = async () => {
@@ -55,6 +69,14 @@ export default function OrderDetail({ order, open, onClose, onEdit, onDuplicate,
     };
     if (open) loadRates();
   }, [open]);
+
+  const { data: invoiceTemplate } = useQuery({
+    queryKey: ['invoiceTemplate'],
+    queryFn: async () => {
+      const { data } = await supabase.from('InvoiceTemplate').select('*').maybeSingle();
+      return data || {};
+    },
+  });
 
   const { data: receiptTemplate } = useQuery({
     queryKey: ['receiptTemplate'],
@@ -95,7 +117,7 @@ export default function OrderDetail({ order, open, onClose, onEdit, onDuplicate,
     return '₴';
   };
 
-  const generateReceiptHTML = () => {
+  const generateReceiptHTML = (targetCurrency = 'UAH') => {
     const tpl = receiptTemplate || {};
     const items = getParsedItems();
 
@@ -122,8 +144,28 @@ export default function OrderDetail({ order, open, onClose, onEdit, onDuplicate,
       totals.EUR *= (1 - discountPercent / 100);
     }
 
-    // Результуючий підсумок у гривні за актуальним курсом
-    const totalInUah = totals.UAH + (totals.USD * exchangeRates.USD) + (totals.EUR * exchangeRates.EUR);
+    // Рендер головної суми
+    let mainTotalHtml = '';
+    if (targetCurrency === 'ORIGINAL') {
+        const activeCurrencies = Object.entries(totals).filter(([_, v]) => v > 0);
+        if (activeCurrencies.length === 0) {
+            mainTotalHtml = `0 ${getCurrencySymbol('UAH')}`;
+        } else {
+            mainTotalHtml = activeCurrencies
+                .map(([cur, val]) => `${val.toFixed(cur === 'UAH' ? 0 : 2)} ${getCurrencySymbol(cur)}`)
+                .join(' + ');
+        }
+    } else {
+        let mainTotal = totals.UAH;
+        if (targetCurrency === 'USD') {
+            mainTotal = (totals.UAH / exchangeRates.USD) + totals.USD + (totals.EUR * exchangeRates.EUR / exchangeRates.USD);
+        } else if (targetCurrency === 'EUR') {
+            mainTotal = (totals.UAH / exchangeRates.EUR) + (totals.USD * exchangeRates.USD / exchangeRates.EUR) + totals.EUR;
+        } else {
+            mainTotal = totals.UAH + (totals.USD * exchangeRates.USD) + (totals.EUR * exchangeRates.EUR);
+        }
+        mainTotalHtml = `${mainTotal.toFixed(targetCurrency === 'UAH' ? 0 : 2)} ${getCurrencySymbol(targetCurrency)}`;
+    }
 
     // Рядки товарів з покращеним вирівнюванням
     const itemsRows = filteredItems.map(item => `
@@ -192,7 +234,7 @@ export default function OrderDetail({ order, open, onClose, onEdit, onDuplicate,
         <div style="border:2px dashed #000; padding:8px; margin-top:10px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; border-bottom:1px solid #000; padding-bottom:5px;">
             <span style="font-weight:900; font-size:11px; text-transform:uppercase;">ДО ОПЛАТИ:</span>
-            <span style="font-weight:900; font-size:13px;">${totalInUah.toFixed(0)} ₴</span>
+            <span style="font-weight:900; font-size:13px; text-align:right; flex:1; padding-left:10px;">${mainTotalHtml}</span>
           </div>
 
           <div style="font-size:9px; color:#000; line-height:1.4;">
@@ -211,7 +253,6 @@ export default function OrderDetail({ order, open, onClose, onEdit, onDuplicate,
 
         <div style="text-align:center; margin-top:20px; border-top:2px solid #000; padding-top:10px;">
           <div style="font-size:10px; font-weight:bold; margin-bottom:4px;">${tpl.thanks_text || 'Дякуємо за співпрацю!'}</div>
-          <div style="font-size:11px; font-weight:900;">${tpl.contacts || ''}</div>
 
           <div style="margin-top:15px; display:flex; flex-direction:column; align-items:center;">
              <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https://imi-lab4.vercel.app/p/order/${order.id}" style="width:30mm; height:30mm; margin-bottom:5px;" />
@@ -223,38 +264,327 @@ export default function OrderDetail({ order, open, onClose, onEdit, onDuplicate,
     `;
   };
 
-  const handleDownloadPdf = () => {
-    const html = generateReceiptHTML();
-    const element = document.createElement('div');
-    element.innerHTML = html;
-    element.style.position = 'absolute';
-    element.style.left = '-9999px';
-    element.style.width = '58mm';
-    element.style.background = '#ffffff';
-    document.body.appendChild(element);
+  const handleDownloadA4Pdf = () => {
+    const tpl = invoiceTemplate || {};
+    const qrUrl = `https://imi-lab4.vercel.app/p/order/${order.id}`;
+    const items = getParsedItems();
+    const shades = typeof order.tooth_shades === 'string' ? JSON.parse(order.tooth_shades) : (order.tooth_shades || {});
+
+    let selectedTeeth = [];
+    if (Array.isArray(order.selected_teeth)) {
+      selectedTeeth = order.selected_teeth.map(t => parseInt(t));
+    } else if (typeof order.selected_teeth === 'string' && order.selected_teeth.startsWith('{')) {
+      selectedTeeth = order.selected_teeth.replace(/[{}]/g, '').split(',').map(t => parseInt(t.trim())).filter(t => !isNaN(t));
+    } else {
+      items.forEach(i => {
+        if (i.teeth_numbers) {
+          if (Array.isArray(i.teeth_numbers)) i.teeth_numbers.forEach(n => selectedTeeth.push(parseInt(n)));
+          else selectedTeeth.push(parseInt(i.teeth_numbers));
+        }
+      });
+    }
+    selectedTeeth = [...new Set(selectedTeeth.filter(t => !isNaN(t)))];
+
+    const totals = { UAH: 0, USD: 0, EUR: 0 };
+    items.forEach(item => {
+      const cur = item.price_currency || 'UAH';
+      if (totals[cur] !== undefined) {
+        totals[cur] += parseFloat(item.unit_price || 0) * (parseInt(item.quantity) || 1);
+      }
+    });
+
+    const discountPercent = parseFloat(order.manual_discount_percent) || parseFloat(order.doctor_discount) || 0;
+    const finalTotals = {};
+    Object.entries(totals).forEach(([cur, val]) => {
+      if (val > 0) finalTotals[cur] = val * (1 - discountPercent / 100);
+    });
+
+    const totalInUah = Object.entries(finalTotals).reduce((acc, [cur, val]) => {
+      if (cur === 'UAH') return acc + val;
+      return acc + (val * exchangeRates[cur]);
+    }, 0);
+
+    const renderTooth = (num) => {
+      const isSelected = selectedTeeth.includes(num);
+      const imageSrc = getToothImage(num);
+      const toothShade = shades[num];
+      return `
+        <div style="display: flex; flex-direction: column; align-items: center; min-width: 35px;">
+          <span style="font-size: 9px; font-weight: 900; margin-bottom: 2px; color: ${isSelected ? '#2563eb' : '#cbd5e1'}">${num}</span>
+          <div style="position: relative; width: 32px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid ${isSelected ? '#dbeafe' : 'transparent'}; background: ${isSelected ? '#eff6ff' : 'transparent'}">
+            <img src="${imageSrc}" style="width: 100%; height: 100%; object-fit: contain; ${isSelected ? '' : 'opacity: 0.2; filter: grayscale(100%);'}" />
+            ${isSelected && toothShade ? `<div style="position: absolute; bottom: -4px; right: -4px; background: #2563eb; color: white; font-size: 7px; font-weight: 900; padding: 1px 3px; border-radius: 3px; z-index: 10;">${toothShade.neck || toothShade.incisal}</div>` : ''}
+          </div>
+        </div>
+      `;
+    };
+
+    const html = `
+      <div style="font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; width: 210mm; padding: 10mm; background: white; color: #1e293b;">
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px;">
+          <div>
+            <div style="display: flex; gap: 8px; margin-bottom: 4px;">
+              <span style="font-size: 10px; font-weight: 900; text-transform: uppercase; color: #2563eb; background: #eff6ff; padding: 2px 8px; border-radius: 20px;">Наряд №${order.order_number}</span>
+              <span style="font-size: 10px; font-weight: 900; text-transform: uppercase; color: #94a3b8;">Work Sheet</span>
+            </div>
+            <h1 style="font-size: 24pt; font-weight: 900; margin: 0; color: #0f172a;">${order.patient_name || '—'}</h1>
+          </div>
+          <div style="text-align: right;">
+            ${tpl.logo_url ? `<img src="${tpl.logo_url}" style="max-height: 15mm; margin-bottom: 5px;" />` : `<div style="width: 12mm; height: 12mm; background: #0f172a; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 900; font-size: 8px; margin-left: auto;">LAB</div>`}
+            <div style="font-size: 10pt; font-weight: 700; color: #64748b;">IMILab System</div>
+          </div>
+        </div>
+
+        <!-- Info Cards -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+          <div style="background: #f8fafc; border-radius: 20px; padding: 15px; border: 1px solid #f1f5f9;">
+            <div style="margin-bottom: 12px;">
+              <p style="font-size: 8pt; font-weight: 800; text-transform: uppercase; color: #94a3b8; margin: 0 0 4px 0;">Клініка</p>
+              <p style="font-size: 12pt; font-weight: 700; color: #1e293b; margin: 0;">${order.clinic_name || 'Приватна практика'}</p>
+            </div>
+            <div style="border-top: 1px solid #e2e8f0; padding-top: 10px;">
+              <p style="font-size: 8pt; font-weight: 800; text-transform: uppercase; color: #94a3b8; margin: 0 0 4px 0;">Лікар</p>
+              <p style="font-size: 12pt; font-weight: 700; color: #1e293b; margin: 0;">${order.doctor_name || '—'}</p>
+            </div>
+          </div>
+          <div style="background: #f8fafc; border-radius: 20px; padding: 15px; border: 1px solid #f1f5f9; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div>
+              <p style="font-size: 8pt; font-weight: 800; text-transform: uppercase; color: #94a3b8; margin: 0 0 4px 0;">Поступлення</p>
+              <p style="font-size: 11pt; font-weight: 700; color: #1e293b; margin: 0;">${order.creation_date ? format(parseISO(order.creation_date), 'dd.MM.yyyy') : '—'}</p>
+            </div>
+            <div style="text-align: right;">
+              <p style="font-size: 8pt; font-weight: 800; text-transform: uppercase; color: #94a3b8; margin: 0 0 4px 0;">План здачі</p>
+              <p style="font-size: 11pt; font-weight: 900; color: #2563eb; margin: 0;">${order.due_date ? format(parseISO(order.due_date), 'dd.MM.yyyy') : '—'}</p>
+            </div>
+            <div style="grid-column: span 2; border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 5px;">
+               <p style="font-size: 8pt; font-weight: 800; text-transform: uppercase; color: #94a3b8; margin: 0 0 4px 0;">Комплектація</p>
+               <div style="font-size: 9pt; color: #475569; display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+                 <span>Ложки: <b>${order.trays_count || 0}</b></span>
+                 <span>Трансфери: <b>${order.transfers_count || 0}</b></span>
+                 <span>Аналоги: <b>${order.analogs_count || 0}</b></span>
+                 <span>Абатменти: <b>${order.abutments_count || 0}</b></span>
+               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tooth Chart -->
+        <div style="background: white; border-radius: 25px; border: 1px solid #f1f5f9; margin-bottom: 20px; overflow: hidden;">
+          <div style="background: #f8fafc; padding: 8px 20px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between;">
+            <span style="font-size: 8pt; font-weight: 900; text-transform: uppercase; color: #64748b;">Зубна карта (FDI)</span>
+            <div style="display: flex; gap: 20px;">
+              <span style="font-size: 8pt; font-weight: 900; color: #2563eb;">R</span>
+              <span style="font-size: 8pt; font-weight: 900; color: #2563eb;">L</span>
+            </div>
+          </div>
+          <div style="padding: 15px; display: flex; flex-direction: column; gap: 10px; align-items: center;">
+            <div style="display: flex; gap: 4px;">
+              <div style="display: flex; gap: 2px;">${UPPER_LEFT.map(n => renderTooth(n)).join('')}</div>
+              <div style="width: 1px; height: 40px; background: #f1f5f9; margin: 0 5px;"></div>
+              <div style="display: flex; gap: 2px;">${UPPER_RIGHT.map(n => renderTooth(n)).join('')}</div>
+            </div>
+            <div style="display: flex; gap: 4px;">
+              <div style="display: flex; gap: 2px;">${LOWER_LEFT.map(n => renderTooth(n)).join('')}</div>
+              <div style="width: 1px; height: 40px; background: #f1f5f9; margin: 0 5px;"></div>
+              <div style="display: flex; gap: 2px;">${LOWER_RIGHT.map(n => renderTooth(n)).join('')}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Services -->
+        <div style="background: white; border-radius: 20px; border: 1px solid #f1f5f9; margin-bottom: 20px; overflow: hidden;">
+          <div style="background: #0f172a; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 8pt; font-weight: 900; text-transform: uppercase; color: #94a3b8;">Перелік послуг</span>
+            <span style="font-size: 8pt; font-weight: 900; text-transform: uppercase; color: white; background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 5px;">${items.length} поз.</span>
+          </div>
+          <div style="padding: 0;">
+            ${items.map((item, idx) => `
+              <div style="padding: 10px 20px; border-bottom: 1px solid #f8fafc; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <p style="font-size: 10.5pt; font-weight: 700; color: #1e293b; margin: 0;">${item.service_name || item.name}</p>
+                  <p style="font-size: 8pt; font-weight: 900; text-transform: uppercase; color: #2563eb; margin: 2px 0 0 0;">
+                    ${item.teeth_numbers ? `Зуби: ${item.teeth_numbers}` : 'Загальна робота'} • x${item.quantity || 1}
+                  </p>
+                </div>
+                <div style="text-align: right;">
+                  <p style="font-size: 11pt; font-weight: 900; color: #0f172a; margin: 0;">${(item.unit_price * (item.quantity || 1)).toLocaleString()} ${getCurrencySymbol(item.price_currency)}</p>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+
+          <!-- Totals -->
+          <div style="background: #0f172a; padding: 20px; color: white;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+              <span style="font-size: 8pt; font-weight: 900; text-transform: uppercase; color: #64748b;">Розрахунок</span>
+              <span style="font-size: 8pt; font-weight: 900; text-transform: uppercase; color: #10b981; border: 1px solid rgba(16,185,129,0.2); padding: 2px 8px; border-radius: 20px;">${order.payment_status || 'Очікує'}</span>
+            </div>
+            ${Object.entries(finalTotals).map(([cur, val]) => `
+              <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                <span style="font-size: 9pt; font-weight: 700; color: #64748b; text-transform: uppercase;">${cur}</span>
+                <span style="font-size: 14pt; font-weight: 900;">${Math.round(val).toLocaleString()} ${getCurrencySymbol(cur)}</span>
+              </div>
+            `).join('')}
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: baseline;">
+              <span style="font-size: 9pt; font-weight: 900; text-transform: uppercase; color: #3b82f6;">Разом до сплати:</span>
+              <div>
+                <span style="font-size: 28pt; font-weight: 900; letter-spacing: -1px;">${Math.round(totalInUah).toLocaleString()}</span>
+                <span style="font-size: 12pt; font-weight: 900; color: #3b82f6; margin-left: 4px;">ГРН</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Technical Specs & Notes -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+          <div style="background: white; border-radius: 20px; border: 1px solid #f1f5f9; padding: 15px;">
+            <h3 style="font-size: 8pt; font-weight: 900; text-transform: uppercase; color: #94a3b8; margin: 0 0 10px 0;">Технічні специфікації</h3>
+            <div style="font-size: 9pt;">
+              ${Object.entries(shades).map(([tooth, s]) => `
+                <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f8fafc;">
+                  <span style="font-weight: 900; color: #2563eb;">Зуб ${tooth}</span>
+                  <span style="font-weight: 700; color: #475569;">${s.neck ? `Ш: ${s.neck}` : ''} ${s.incisal ? ` | К: ${s.incisal}` : ''}</span>
+                </div>
+              `).join('')}
+              ${Object.keys(shades).length === 0 ? '<p style="color: #94a3b8; font-style: italic;">Окремі кольори не вказані</p>' : ''}
+            </div>
+            <div style="margin-top: 15px; display: flex; gap: 10px; border-top: 1px solid #f1f5f9; padding-top: 10px;">
+               <div style="display: flex; align-items: center; gap: 4px; font-size: 8pt; font-weight: 800; color: #64748b; text-transform: uppercase;">
+                 <div style="width: 10px; height: 10px; border: 2px solid #e2e8f0; border-radius: 3px; ${order.trial_type === 'frame' ? 'background: #2563eb; border-color: #2563eb;' : ''}"></div> Каркас
+               </div>
+               <div style="display: flex; align-items: center; gap: 4px; font-size: 8pt; font-weight: 800; color: #64748b; text-transform: uppercase;">
+                 <div style="width: 10px; height: 10px; border: 2px solid #e2e8f0; border-radius: 3px; ${order.trial_type === 'bisque' ? 'background: #2563eb; border-color: #2563eb;' : ''}"></div> Бісквіт
+               </div>
+               <div style="display: flex; align-items: center; gap: 4px; font-size: 8pt; font-weight: 800; color: #64748b; text-transform: uppercase;">
+                 <div style="width: 10px; height: 10px; border: 2px solid #e2e8f0; border-radius: 3px; ${order.trial_type === 'final' ? 'background: #2563eb; border-color: #2563eb;' : ''}"></div> Фініш
+               </div>
+            </div>
+          </div>
+          <div style="background: #fffbeb; border-radius: 20px; border: 1px solid #fef3c7; padding: 15px;">
+            <h3 style="font-size: 8pt; font-weight: 900; text-transform: uppercase; color: #b45309; margin: 0 0 10px 0;">Коментарі до замовлення</h3>
+            <p style="font-size: 10pt; color: #92400e; font-weight: 500; font-style: italic; line-height: 1.4; margin: 0;">
+              ${order.notes || 'Додаткові вказівки відсутні'}
+            </p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="border-top: 1px solid #f1f5f9; padding-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 15px;">
+            <div style="padding: 10px; background: white; border: 1px solid #f1f5f9; border-radius: 15px;">
+              <img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(qrUrl)}" style="width: 20mm; height: 20mm;" />
+            </div>
+            <div>
+              <p style="font-size: 8pt; font-weight: 900; color: #0f172a; margin: 0; text-transform: uppercase;">Цифрова лабораторія IMILab</p>
+              <p style="font-size: 7pt; font-weight: 700; color: #94a3b8; margin: 2px 0 0 0;">${(tpl.company_address || '').split('•')[0].trim()}</p>
+            </div>
+          </div>
+          <div style="text-align: right; opacity: 0.3;">
+            <p style="font-size: 7pt; font-weight: 900; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px;">Digital Case Workflow v4.0</p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const container = document.createElement('div');
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    container.style.width = '210mm';
+    container.innerHTML = html;
+    document.body.appendChild(container);
 
     setTimeout(() => {
-      html2canvas(element, { scale: 3 }).then(canvas => {
+      html2canvas(container, {
+        scale: 2.5,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false
+      }).then(canvas => {
         const imgData = canvas.toDataURL('image/jpeg', 0.95);
-        document.body.removeChild(element);
-        import('jspdf').then(({ jsPDF }) => {
-          const pdf = new jsPDF('p', 'mm', [58, canvas.height * 58 / canvas.width]);
-          pdf.addImage(imgData, 'JPEG', 0, 0, 58, canvas.height * 58 / canvas.width);
-          const pdfBase64 = pdf.output('datauristring');
-          if (window.Capacitor && FunPrint) {
-             FunPrint.savePdfToFile({ data: pdfBase64, filename: `Чек_${order.order_number}.pdf` })
-                .then(() => alert('✅ PDF чек готовий!'));
-          } else {
-             pdf.save(`Чек_${order.order_number}.pdf`);
-          }
-        });
+        document.body.removeChild(container);
+
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
+
+        if (window.Capacitor && FunPrint) {
+           const pdfBase64 = pdf.output('datauristring');
+           FunPrint.savePdfToFile({ data: pdfBase64, filename: `WorkOrder_${order.order_number}_A4.pdf` })
+              .then(() => alert('✅ PDF для роботи збережено!'))
+              .catch(err => alert('Помилка збереження PDF: ' + err.message));
+        } else {
+           pdf.save(`WorkOrder_${order.order_number}_A4.pdf`);
+        }
+      }).catch(err => {
+        document.body.removeChild(container);
+        alert('Помилка генерації PDF: ' + err.message);
       });
-    }, 500);
+    }, 1500);
+  };
+
+  const handlePrintReceipt = async () => {
+    try {
+      const html = generateReceiptHTML(printCurrency);
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'absolute';
+      iframe.style.width = '58mm';
+      iframe.style.height = '1px';
+      iframe.style.visibility = 'hidden';
+      iframe.style.left = '-9999px';
+      document.body.appendChild(iframe);
+
+      const doc = iframe.contentWindow.document;
+      doc.open();
+      doc.write(html);
+      doc.close();
+
+      setTimeout(async () => {
+        try {
+          const body = doc.body;
+          body.style.margin = '0';
+          body.style.padding = '0';
+          body.style.display = 'inline-block';
+
+          const width = body.offsetWidth || body.scrollWidth;
+          const height = body.offsetHeight || body.scrollHeight;
+          iframe.style.height = height + 'px';
+
+          const canvas = await html2canvas(body, {
+            scale: 3,
+            useCORS: true,
+            backgroundColor: '#ffffff',
+            logging: false,
+            width: width,
+            height: height,
+            x: 0,
+            y: 0
+          });
+
+          const imgData = canvas.toDataURL('image/png', 1.0);
+          document.body.removeChild(iframe);
+
+          if (window.Capacitor && FunPrint) {
+            await FunPrint.printImage({ image: imgData });
+          } else {
+            const win = window.open('', '_blank');
+            win.document.write(`<img src="${imgData}" style="width:100%" />`);
+            win.document.close();
+            win.focus();
+            setTimeout(() => { win.print(); win.close(); }, 250);
+          }
+        } catch (err) {
+          console.error(err);
+          alert('Помилка друку: ' + err.message);
+        }
+      }, 1200);
+    } catch (e) {
+      alert(e.message);
+    }
   };
 
   const handleSaveReceiptAsImage = async () => {
     try {
-      const html = generateReceiptHTML();
+      const html = generateReceiptHTML(printCurrency);
       const iframe = document.createElement('iframe');
       iframe.style.position = 'absolute';
       iframe.style.width = '58mm';
@@ -331,11 +661,23 @@ export default function OrderDetail({ order, open, onClose, onEdit, onDuplicate,
             <p className="text-xs text-slate-500 font-medium">{order.patient_name}</p>
           </div>
           <div className="flex items-center gap-2">
+            <Select value={printCurrency} onValueChange={setPrintCurrency}>
+              <SelectTrigger className="w-24 h-9 rounded-full bg-slate-50 border-slate-200 text-[10px] font-bold">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="ORIGINAL">Оригінал</SelectItem>
+                <SelectItem value="UAH">UAH ₴</SelectItem>
+                <SelectItem value="USD">USD $</SelectItem>
+                <SelectItem value="EUR">EUR €</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button size="icon" variant="ghost" className="rounded-full hover:bg-slate-100" onClick={handlePrintReceipt} title="Надрукувати чек (Термопринтер)"><Printer className="w-4 h-4 text-emerald-600" /></Button>
             <Button size="icon" variant="ghost" className="rounded-full hover:bg-slate-100" onClick={handleSaveReceiptAsImage} title="Зберегти чек як фото"><ImageIcon className="w-4 h-4 text-blue-600" /></Button>
             <Button size="icon" variant="ghost" className="rounded-full hover:bg-slate-100" onClick={() => setQrOpen(true)} title="Показати QR-код наряду"><QrCode className="w-4 h-4 text-slate-600" /></Button>
-            <Button size="icon" variant="ghost" className="rounded-full hover:bg-slate-100" onClick={handleDownloadPdf}><Download className="w-4 h-4 text-slate-600" /></Button>
+            <Button size="icon" variant="ghost" className="rounded-full hover:bg-slate-100" onClick={handleDownloadA4Pdf} title="Роздрукувати наряд (A4 PDF)"><FileText className="w-4 h-4 text-blue-600" /></Button>
             <div className="w-px h-6 bg-slate-200 mx-1" />
-            <Button size="icon" variant="ghost" className="rounded-full hover:bg-red-50 hover:text-red-500" onClick={onClose} title="Закрити"><X className="w-5 h-5" /></Button>
+            <Button size="icon" variant="ghost" className="rounded-full hover:bg-red-50 hover:text-red-500" onClose={onClose} onClick={onClose} title="Закрити"><X className="w-5 h-5" /></Button>
           </div>
         </div>
 

@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { format } from 'date-fns';
-import { Plus, FileText, Trash2, StickyNote, DollarSign, Tag, RotateCcw, Wrench, ChevronDown, ChevronUp, Palette } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
+import { uk } from 'date-fns/locale';
+import { Plus, FileText, Trash2, StickyNote, DollarSign, Tag, RotateCcw, Wrench, ChevronDown, ChevronUp, Palette, Lock } from 'lucide-react';
 
 import ToothChart from './ToothChart';
 import FileUploader from './FileUploader';
@@ -74,6 +75,8 @@ export default function OrderForm({ order, onSubmit, onCancel, isSubmitting }) {
     // Обробка послуг
     const items = safeParseArray(order.items).map(item => ({
       ...item,
+      id: item.id || (Math.random().toString(36).substring(2, 9) + Date.now().toString(36)),
+      date: item.date || order.creation_date || new Date().toISOString(),
       technician_service_id: item.technician_service_id ? String(item.technician_service_id) : 'none',
       price_item_id: item.price_item_id ? String(item.price_item_id) : 'none',
       price_currency: item.price_currency || 'UAH'
@@ -262,6 +265,8 @@ export default function OrderForm({ order, onSubmit, onCancel, isSubmitting }) {
         const discountedPrice = basePrice * (1 - discount / 100);
 
         const newItem = {
+          id: Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
+          date: new Date().toISOString(),
           price_item_id: realPriceItem?.id ? realPriceItem.id.toString() : 'none',
           technician_service_id: 'none',
           service_name: realPriceItem?.name
@@ -358,6 +363,11 @@ export default function OrderForm({ order, onSubmit, onCancel, isSubmitting }) {
   };
 
   const removeItem = (index) => {
+    const item = form.items[index];
+    if (item?.is_paid) {
+      alert('Ця послуга вже оплачена техніку, її неможливо видалити');
+      return;
+    }
     setForm(f => {
       const newItems = f.items.filter((_, i) => i !== index);
       const newTeeth = [...new Set(newItems
@@ -371,6 +381,12 @@ export default function OrderForm({ order, onSubmit, onCancel, isSubmitting }) {
   };
 
   const updateItem = (index, field, value) => {
+    const item = form.items[index];
+    if (item?.is_paid) {
+      // Можна дозволити змінювати лише не-фінансові поля, якщо потрібно,
+      // але зазвичай краще заблокувати все крім назви (якщо вона не впливає на ціну)
+      return;
+    }
     const updated = [...form.items];
     updated[index] = { ...updated[index], [field]: value };
 
@@ -777,6 +793,8 @@ export default function OrderForm({ order, onSubmit, onCancel, isSubmitting }) {
                   if (pi) {
                     const discountedPrice = pi.client_price * (1 - (doctorDiscount || 0) / 100);
                     const newItem = {
+                      id: Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
+                      date: new Date().toISOString(),
                       price_item_id: pi.id.toString(),
                       technician_service_id: 'none',
                       service_name: pi.name,
@@ -832,6 +850,8 @@ export default function OrderForm({ order, onSubmit, onCancel, isSubmitting }) {
                     const ts = currentTechServices.find(s => s && String(s.id) === String(selectedTechServiceId));
                     if (ts) {
                       const newItem = {
+                        id: Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
+                        date: new Date().toISOString(),
                         price_item_id: 'none',
                         technician_service_id: ts.id.toString(),
                         service_name: `[Технік] ${ts.service_name}`,
@@ -865,10 +885,15 @@ export default function OrderForm({ order, onSubmit, onCancel, isSubmitting }) {
               {form.items.map((item, idx) => item && (
                 <div key={idx} className="border border-gray-200 rounded-sm p-2 bg-white flex flex-col gap-2 shadow-sm mb-2">
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 text-sm font-medium text-gray-700 truncate">{item.service_name}</div>
-                    <button type="button" onClick={() => removeItem(idx)} className="text-red-400 hover:text-red-600">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex-1 text-sm font-medium text-gray-700 truncate flex items-center gap-2">
+                      {item.service_name}
+                      {item.is_paid && <Lock className="w-3 h-3 text-emerald-500" title="Оплачено техніку" />}
+                    </div>
+                    {!item.is_paid && (
+                      <button type="button" onClick={() => removeItem(idx)} className="text-red-400 hover:text-red-600">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-4 gap-1.5">
@@ -878,17 +903,23 @@ export default function OrderForm({ order, onSubmit, onCancel, isSubmitting }) {
                     </div>
                     <div>
                       <span className="text-[9px] text-gray-400">К-ть</span>
-                      <Input type="number" min="1" value={item.quantity ?? 1} onChange={e => updateItem(idx, 'quantity', Number(e.target.value))} className="h-7 text-xs rounded-sm px-1.5" />
+                      <Input type="number" min="1" value={item.quantity ?? 1} onChange={e => updateItem(idx, 'quantity', Number(e.target.value))} disabled={item.is_paid} className={`h-7 text-xs rounded-sm px-1.5 ${item.is_paid ? 'bg-gray-50' : ''}`} />
                     </div>
                     <div>
                       <span className="text-[9px] text-gray-400">Ціна ({getCurrencyLabel(item.price_currency)})</span>
-                      <Input type="number" min="0" step="0.01" value={item.unit_price ?? 0} onChange={e => updateItem(idx, 'unit_price', Number(e.target.value))} className="h-7 text-xs rounded-sm px-1.5" />
+                      <Input type="number" min="0" step="0.01" value={item.unit_price ?? 0} onChange={e => updateItem(idx, 'unit_price', Number(e.target.value))} disabled={item.is_paid} className={`h-7 text-xs rounded-sm px-1.5 ${item.is_paid ? 'bg-gray-50' : ''}`} />
                     </div>
                     <div>
                       <span className="text-[9px] text-gray-400">Сума ({getCurrencyLabel(item.price_currency)})</span>
                       <Input value={(item.total ?? 0).toFixed(2)} disabled className="h-7 text-xs bg-gray-50 font-semibold rounded-sm px-1.5" />
                     </div>
                   </div>
+                  {item.date && (
+                    <div className="text-[8px] text-gray-400 flex justify-between items-center px-1">
+                      <span>Внесено: {item.date.includes('T') ? format(parseISO(item.date), 'dd.MM.yyyy HH:mm', { locale: uk }) : item.date}</span>
+                      {item.is_paid && <span className="text-emerald-600 font-bold uppercase">Виплачено</span>}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

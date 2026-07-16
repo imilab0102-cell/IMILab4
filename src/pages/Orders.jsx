@@ -221,6 +221,7 @@ export default function Orders() {
         const qty = parseInt(i.quantity) || 1;
         const price = parseFloat(i.unit_price) || 0;
         return {
+          ...i, // ЗБЕРІГАЄМО всі поля, включаючи id, date, is_paid
           price_id: safeId(i.price_id),
           price_item_id: safeId(i.price_item_id),
           name: i.name || i.service_name || '',

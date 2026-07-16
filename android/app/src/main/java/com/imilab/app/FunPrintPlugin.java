@@ -121,6 +121,7 @@ public class FunPrintPlugin extends Plugin {
                     getContext().startActivity(intent);
                     call.resolve();
                 } catch (Exception e2) {
+                    intent.setPackage(null); // Скидаємо пакет, щоб показати всі доступні програми
                     Intent shareIntent = Intent.createChooser(intent, "Поділитися чеком");
                     shareIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     getContext().startActivity(shareIntent);
@@ -209,6 +210,7 @@ public class FunPrintPlugin extends Plugin {
                     try {
                         getContext().startActivity(intent);
                     } catch (Exception e2) {
+                        intent.setPackage(null); // Скидаємо пакет для загального доступу
                         Intent shareIntent = Intent.createChooser(intent, "Поділитися чеком");
                         shareIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                         getContext().startActivity(shareIntent);

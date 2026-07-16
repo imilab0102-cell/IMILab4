@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/table'
 import { format, parseISO, addDays } from 'date-fns'
 import { uk } from 'date-fns/locale'
-import { ArrowLeft, Calendar, Loader2, CheckCircle2, History, Wallet, X, Eye, AlertCircle, FlaskConical } from 'lucide-react'
+import { ArrowLeft, Calendar, Loader2, CheckCircle2, History, Wallet, X, Eye, AlertCircle, FlaskConical, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import PageHeader from '@/components/PageHeader'
 import {
@@ -51,7 +51,14 @@ function getItems(order) {
       items = []
     }
   }
-  return Array.isArray(items) ? items : []
+  if (!Array.isArray(items)) return []
+
+  // Migration: ensure each item has an ID and a date
+  return items.map(item => ({
+    ...item,
+    id: item.id || (Math.random().toString(36).substring(2, 9) + Date.now().toString(36)),
+    date: (item.date || order.creation_date || '2024-01-01').slice(0, 10)
+  }))
 }
 
 function calcOrderSalary(order) {
@@ -105,6 +112,28 @@ export default function TechnicianSalaryReport() {
   const [detailOpen, setDetailOpen] = useState(false)
   const [detailOrder, setDetailOrder] = useState(null)
 
+  // Поля для ручного коригування
+  const [manualAdjustments, setManualAdjustments] = useState([])
+  const [adjDesc, setAdjDesc] = useState('')
+  const [adjAmount, setAdjAmount] = useState('')
+
+  const handleAddAdjustment = () => {
+    const amt = parseFloat(adjAmount)
+    if (!adjDesc || isNaN(amt)) return
+    setManualAdjustments([...manualAdjustments, {
+      id: 'adj-' + Date.now(),
+      description: adjDesc,
+      amount: amt,
+      date: format(new Date(), 'yyyy-MM-dd')
+    }])
+    setAdjDesc('')
+    setAdjAmount('')
+  }
+
+  const removeAdjustment = (id) => {
+    setManualAdjustments(manualAdjustments.filter(a => a.id !== id))
+  }
+
   const { data: technicians = [], isLoading: techLoading } = useQuery({
     queryKey: ['technicians'],
     queryFn: async () => {
@@ -137,6 +166,7 @@ export default function TechnicianSalaryReport() {
     queryKey: ['paidOrders', selectedTechnicianId],
     queryFn: async () => {
       if (!selectedTechnicianId) return []
+      // We still query this for backward compatibility, but we will also check item-level flags
       const { data, error } = await supabase
         .from('salary_payment_order')
         .select('work_order_id, amount')
@@ -151,6 +181,21 @@ export default function TechnicianSalaryReport() {
     () => new Set(paidOrderRows.map((r) => r.work_order_id)),
     [paidOrderRows]
   )
+
+  const { data: dbAdjustments = [], refetch: refetchDbAdjustments } = useQuery({
+    queryKey: ['technician-adjustments', selectedTechnicianId],
+    queryFn: async () => {
+      if (!selectedTechnicianId) return []
+      const { data, error } = await supabase
+        .from('technician_adjustment')
+        .select('*')
+        .eq('technician_id', selectedTechnicianId)
+        .eq('is_paid', false)
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!selectedTechnicianId,
+  })
 
   const { data: allOrders = [], refetch: refetchAllOrders } = useQuery({
     queryKey: ['allOrders'],
@@ -179,30 +224,44 @@ export default function TechnicianSalaryReport() {
     refetch,
     error: ordersError,
   } = useQuery({
-    queryKey: ['salaryReportOrders', selectedTechnicianId, dateField, startDate, endDate],
+    queryKey: ['salaryReportOrders', selectedTechnicianId, startDate, endDate],
     queryFn: async () => {
       if (!selectedTechnicianId || !startDate || !endDate) return []
 
-      let from = startDate
-      let to = endDate
-      if (startDate > endDate) { from = endDate; to = startDate }
+      const tech = technicians.find(t => String(t.id) === selectedTechnicianId);
+      const techName = tech?.full_name;
 
-      const { data, error } = await supabase
+      console.log(`🔍 Запит нарядів для: ${techName} (ID: ${selectedTechnicianId})`);
+
+      // 1. Спочатку пробуємо знайти за ID
+      let { data, error } = await supabase
         .from('WorkOrder')
-        .select('id, order_number, due_date, creation_date, completion_date, status, items, patient_name, clinic_name, technician_total_pay')
+        .select('id, order_number, due_date, creation_date, completion_date, status, items, patient_name, clinic_name, technician_total_pay, technician_id, technician_name')
         .eq('technician_id', selectedTechnicianId)
-        .neq('status', CANCELLED_STATUS)
-        .filter(dateField, 'gte', from)
-        .filter(dateField, 'lte', to)
-        .order(dateField, { ascending: true })
+        .order('creation_date', { ascending: false })
+        .limit(1000);
 
-      if (error) {
-        console.error('❌ Помилка запиту WorkOrder:', error)
-        throw error
+      // 2. Якщо за ID нічого немає, пробуємо за іменем (для старих записів)
+      if (!error && (!data || data.length === 0) && techName) {
+        console.log(`ℹ️ По ID нічого не знайдено, пробуємо за іменем: ${techName}`);
+        const { data: byName, error: errName } = await supabase
+          .from('WorkOrder')
+          .select('id, order_number, due_date, creation_date, completion_date, status, items, patient_name, clinic_name, technician_total_pay, technician_id, technician_name')
+          .eq('technician_name', techName)
+          .order('creation_date', { ascending: false })
+          .limit(1000);
+
+        if (!errName) data = byName;
       }
 
-      console.log(`✅ Отримано ${data?.length || 0} нарядів WorkOrder за період`)
-      return data || []
+      if (error) {
+        console.error('❌ Помилка WorkOrder:', error);
+        throw error;
+      }
+
+      const filtered = (data || []).filter(o => !o.status?.toLowerCase().includes('скасов'));
+      console.log(`✅ Отримано нарядів: ${filtered.length}`);
+      return filtered;
     },
     enabled: false,
     retry: 1,
@@ -251,17 +310,54 @@ export default function TechnicianSalaryReport() {
   }
 
   const allOrdersWithSalary = useMemo(() => {
-    console.log('🔄 Обробка всіх замовлень для звіту...')
+    let from = startDate
+    let to = endDate
+    if (startDate > endDate) { from = endDate; to = startDate }
 
-    const orderItems = orders.map((o) => ({
-      ...o,
-      _type: 'Наряд',
-      _salary: calcOrderSalary(o),
-      _paid: paidOrderIds.has(o.id),
-      _date: o[dateField] || o.creation_date,
-      _sourceId: o.id,
-      _sourceType: 'WorkOrder',
-    }))
+    console.log(`🔄 Обробка періоду: ${from} - ${to}. Наряди: ${orders.length}, Зовн: ${externalOrders.length}`);
+
+    const orderItems = []
+    orders.forEach(order => {
+      const items = getItems(order)
+
+      // Якщо в наряді немає послуг (старий формат), показуємо його цілком за датою створення
+      if (items.length === 0) {
+        const orderDate = (order.creation_date || '2024-01-01').slice(0, 10)
+        const pay = parseFloat(order.technician_total_pay) || 0
+        if (orderDate >= from && orderDate <= to && pay > 0) {
+          orderItems.push({
+            ...order,
+            _type: 'Наряд (старий)',
+            _salary: pay,
+            _paid: paidOrderIds.has(order.id),
+            _date: orderDate,
+            _sourceId: order.id,
+            _sourceType: 'WorkOrder',
+          })
+        }
+        return;
+      }
+
+      // Якщо послуги є, розбиваємо по кожній послузі
+      items.forEach(item => {
+        const itemDate = item.date
+        const pay = parseFloat(item.technician_price) || parseFloat(item.technician_pay) || 0
+
+        if (itemDate >= from && itemDate <= to && pay > 0) {
+          orderItems.push({
+            ...order,
+            _type: 'Наряд',
+            _salary: pay * (parseInt(item.quantity) || 1),
+            _paid: item.is_paid || item.salary_payment_id || paidOrderIds.has(order.id),
+            _date: itemDate,
+            _sourceId: order.id,
+            _itemId: item.id,
+            _itemName: item.service_name || item.name,
+            _sourceType: 'WorkOrder',
+          })
+        }
+      })
+    })
 
     const externalItems = externalOrders.map((o) => {
       const salary = calcExternalOrderSalary(o)
@@ -283,12 +379,43 @@ export default function TechnicianSalaryReport() {
       }
     })
 
-    return [...orderItems, ...externalItems].sort((a, b) => {
+    const adjustmentItems = manualAdjustments.map((adj) => ({
+      _type: 'Коригування (тимчас)',
+      _salary: adj.amount,
+      _paid: false,
+      _date: adj.date,
+      _sourceId: adj.id,
+      _itemName: adj.description,
+      _sourceType: 'ManualAdjustment',
+      patient_name: '—',
+      order_number: '—',
+      status: 'Очікує',
+      id: adj.id
+    }))
+
+    const dbAdjustmentItems = dbAdjustments.map((adj) => ({
+      ...adj,
+      _type: 'Коригування (профіль)',
+      _salary: adj.amount,
+      _paid: false,
+      _date: adj.created_at.slice(0, 10),
+      _sourceId: adj.id,
+      _itemName: adj.description,
+      _sourceType: 'DbAdjustment',
+      patient_name: '—',
+      order_number: '—',
+      status: 'Очікує',
+    }))
+
+    const result = [...orderItems, ...externalItems, ...adjustmentItems, ...dbAdjustmentItems].sort((a, b) => {
       if (!a._date) return 1
       if (!b._date) return -1
-      return parseISO(a._date) - parseISO(b._date)
+      return a._date.localeCompare(b._date)
     })
-  }, [orders, externalOrders, paidOrderIds, dateField])
+
+    console.log(`📊 Результат після фільтрації: ${result.length} рядків`);
+    return result;
+  }, [orders, externalOrders, paidOrderIds, startDate, endDate])
 
   const unpaidOrders = allOrdersWithSalary.filter((o) => !o._paid && o._salary > 0)
   const paidOrdersInPeriod = allOrdersWithSalary.filter((o) => o._paid)
@@ -308,8 +435,13 @@ export default function TechnicianSalaryReport() {
 
       const unpaidWorkOrders = unpaidOrders.filter(o => o._sourceType === 'WorkOrder')
       const unpaidExternal = unpaidOrders.filter(o => o._sourceType === 'ExternalLabOrder')
+      const unpaidManual = unpaidOrders.filter(o => ['ManualAdjustment', 'DbAdjustment'].includes(o._sourceType))
 
       const total = unpaidOrders.reduce((s, o) => s + o._salary, 0)
+
+      const manualNotes = unpaidManual.map(a => `${a._itemName} (${a._salary} ₴)`).join(', ')
+      const notePrefix = `Нараховано за період з ${periodStart} по ${periodEnd}`
+      const noteDetails = ` (наряди: ${unpaidWorkOrders.length}, зовн.лаб.: ${unpaidExternal.length}${manualNotes ? ', коригування: ' + manualNotes : ''})`
 
       // 1. Створюємо запис виплати
       const { data: payment, error: payErr } = await supabase
@@ -320,26 +452,65 @@ export default function TechnicianSalaryReport() {
           period_end: periodEnd,
           total_amount: total,
           orders_count: unpaidOrders.length,
-          note: `Нараховано за ${dateField} з ${periodStart} по ${periodEnd} (наряди: ${unpaidWorkOrders.length}, зовн.лаб.: ${unpaidExternal.length})`,
+          note: notePrefix + noteDetails,
         }])
         .select()
         .single()
       if (payErr) throw payErr
 
-      // 2. Додаємо наряди до salary_payment_order
+      // 1.5 Оновлюємо DbAdjustments
+      const dbAdjIds = unpaidOrders.filter(o => o._sourceType === 'DbAdjustment').map(o => o.id)
+      if (dbAdjIds.length > 0) {
+        const { error: updAdjErr } = await supabase
+          .from('technician_adjustment')
+          .update({ is_paid: true, salary_payment_id: payment.id })
+          .in('id', dbAdjIds)
+        if (updAdjErr) throw updAdjErr
+      }
+
+      // 2. Оновлюємо наряди (маркуємо айтеми як оплачені)
       if (unpaidWorkOrders.length > 0) {
-        const rows = unpaidWorkOrders.map((o) => ({
-          salary_payment_id: payment.id,
-          technician_id: selectedTechnicianId,
-          work_order_id: o.id,
-          amount: o._salary,
-        }))
-        const { error: linkErr } = await supabase
-          .from('salary_payment_order')
-          .insert(rows)
-        if (linkErr) {
-          await supabase.from('salary_payment').delete().eq('id', payment.id)
-          throw linkErr
+        // Групуємо айтеми по нарядах
+        const ordersToUpdate = {}
+        unpaidWorkOrders.forEach(item => {
+          if (!ordersToUpdate[item.id]) {
+            ordersToUpdate[item.id] = {
+              id: item.id,
+              items: getItems(orders.find(o => o.id === item.id)),
+              totalAmount: 0
+            }
+          }
+          ordersToUpdate[item.id].totalAmount += item._salary
+          // Маркуємо конкретний айтем
+          const targetItem = ordersToUpdate[item.id].items.find(i => i.id === item._itemId)
+          if (targetItem) {
+            targetItem.is_paid = true
+            targetItem.paid_at = new Date().toISOString()
+            targetItem.salary_payment_id = payment.id
+          }
+        })
+
+        // Виконуємо оновлення в базі для кожного наряду
+        for (const orderId in ordersToUpdate) {
+          const { error: updErr } = await supabase
+            .from('WorkOrder')
+            .update({ items: JSON.stringify(ordersToUpdate[orderId].items) })
+            .eq('id', orderId)
+
+          if (updErr) throw updErr
+
+          // Додаємо запис у salary_payment_order для історії
+          // Використовуємо upsert, бо наряд може оплачуватися частинами в різні періоди
+          const { error: linkErr } = await supabase
+            .from('salary_payment_order')
+            .upsert({
+              salary_payment_id: payment.id,
+              technician_id: selectedTechnicianId,
+              work_order_id: orderId,
+              amount: ordersToUpdate[orderId].totalAmount,
+            }, { onConflict: 'work_order_id' }) // Це тимчасовий фікс, поки ви не видалите UNIQUE з бази
+
+          if (linkErr) console.warn("Link error (likely unique constraint):", linkErr)
         }
       }
 
@@ -364,11 +535,13 @@ export default function TechnicianSalaryReport() {
       qc.invalidateQueries({ queryKey: ['paidOrders', selectedTechnicianId] })
       qc.invalidateQueries({ queryKey: ['salaryReportOrders', selectedTechnicianId] })
       qc.invalidateQueries({ queryKey: ['salaryReportExternal', selectedTechnicianId] })
+      qc.invalidateQueries({ queryKey: ['technician-adjustments', selectedTechnicianId] })
 
       // Примусове перезавантаження даних
       refetch()
       refetchExternal()
-
+      refetchDbAdjustments()
+      setManualAdjustments([]) // Очищаємо ручні коригування після нарахування
       alert('Зарплату успішно нараховано для всіх робіт!')
     },
     onError: (err) => {
@@ -379,15 +552,52 @@ export default function TechnicianSalaryReport() {
 
   const cancelPaymentMutation = useMutation({
     mutationFn: async (paymentId) => {
-      // 1. Знаходимо всі зовнішні замовлення, що були оплачені цим платежем
-      // На жаль, у нас немає таблиці лінкування для зовн. лаб,
-      // тому ми просто видаляємо платіж.
-      // АЛЕ ми можемо знайти WorkOrders через salary_payment_order.
+      // 1. Знаходимо всі наряди, які були частиною цієї виплати
+      const { data: linkedOrders, error: fetchErr } = await supabase
+        .from('salary_payment_order')
+        .select('work_order_id')
+        .eq('salary_payment_id', paymentId)
+
+      if (fetchErr) throw fetchErr
+
+      // 2. Для кожного наряду "розморожуємо" айтеми, які були прив'язані до цього платежу
+      for (const row of (linkedOrders || [])) {
+        const { data: orderData } = await supabase
+          .from('WorkOrder')
+          .select('items')
+          .eq('id', row.work_order_id)
+          .single()
+
+        if (orderData?.items) {
+          let items = []
+          try { items = typeof orderData.items === 'string' ? JSON.parse(orderData.items) : orderData.items } catch(e) {}
+
+          let changed = false
+          const updatedItems = items.map(item => {
+            if (String(item.salary_payment_id) === String(paymentId)) {
+              changed = true
+              return { ...item, is_paid: false, salary_payment_id: null, paid_at: null }
+            }
+            return item
+          })
+
+          if (changed) {
+            await supabase
+              .from('WorkOrder')
+              .update({ items: JSON.stringify(updatedItems) })
+              .eq('id', row.work_order_id)
+          }
+        }
+      }
+
+      // 3. Видаляємо зв'язки та саму виплату
+      await supabase.from('salary_payment_order').delete().eq('salary_payment_id', paymentId)
 
       const { error } = await supabase
         .from('salary_payment')
         .delete()
         .eq('id', paymentId)
+
       if (error) throw error
     },
     onSuccess: () => {
@@ -462,14 +672,11 @@ export default function TechnicianSalaryReport() {
               </Select>
             </div>
             <div>
-              <Label>Поле дати (для нарядів)</Label>
-              <Select value={dateField} onValueChange={setDateField}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {DATE_FIELDS.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <p className="text-[10px] text-muted-foreground">Для зовн.лаб. використовується order_date</p>
+              <Label>Метод фільтрації</Label>
+              <div className="h-10 flex items-center text-sm font-medium text-blue-600 bg-blue-50 px-3 rounded-md border border-blue-100">
+                За датою внесення послуги
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">Для нарядів використовується дата додавання кожної послуги окремо</p>
             </div>
             <div>
               <Label>Дата від *</Label>
@@ -535,6 +742,30 @@ export default function TechnicianSalaryReport() {
         </Card>
       )}
 
+      {showReport && (
+             <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 space-y-3">
+                <div className="flex items-center gap-2 text-amber-800 font-bold text-sm">
+                   <Plus className="w-4 h-4" /> Додати разову виплату (бонус/послугу)
+                </div>
+                <div className="flex gap-2">
+                   <Input
+                      placeholder="Опис (напр. Бонус за терміновість)"
+                      value={adjDesc}
+                      onChange={e => setAdjDesc(e.target.value)}
+                      className="bg-white border-amber-200"
+                   />
+                   <Input
+                      type="number"
+                      placeholder="Сума"
+                      value={adjAmount}
+                      onChange={e => setAdjAmount(e.target.value)}
+                      className="w-32 bg-white border-amber-200"
+                   />
+                   <Button onClick={handleAddAdjustment} className="bg-amber-600 hover:bg-amber-700">ДОДАТИ</Button>
+                </div>
+             </div>
+      )}
+
       {showReport && !ordersLoading && !externalLoading && (
         <Card>
           <CardHeader>
@@ -581,15 +812,33 @@ export default function TechnicianSalaryReport() {
                         <TableCell>
                           {o._type === 'Наряд' ? (
                             <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Наряд</span>
-                          ) : (
+                          ) : o._type === 'Зовн.лаб.' ? (
                             <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full flex items-center gap-1">
                               <FlaskConical className="w-3 h-3" /> Зовн.
                             </span>
+                          ) : o._sourceType === 'DbAdjustment' ? (
+                            <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">З профілю</span>
+                          ) : (
+                            <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Тимчасове</span>
                           )}
                         </TableCell>
                         <TableCell className="font-mono">{o.order_number || o._sourceId}</TableCell>
-                        <TableCell>{o.patient_name || o.lab_name || '—'}</TableCell>
-                        <TableCell>{o._date ? format(parseISO(o._date), 'dd.MM.yyyy') : '—'}</TableCell>
+                        <TableCell>
+                          <div className="flex justify-between items-start">
+                            <div>
+                               <div>{o.patient_name || o.lab_name || '—'}</div>
+                               {o._itemName && <div className="text-[10px] text-blue-500 font-medium">{o._itemName}</div>}
+                            </div>
+                            {o._sourceType === 'ManualAdjustment' && (
+                               <button onClick={(e) => { e.stopPropagation(); removeAdjustment(o.id); }} className="text-red-400 hover:text-red-600 ml-2">
+                                  <X className="w-3 h-3" />
+                               </button>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-xs">{o._date ? (o._date.includes('T') ? format(parseISO(o._date), 'dd.MM HH:mm') : format(parseISO(o._date), 'dd.MM.yyyy')) : '—'}</div>
+                        </TableCell>
                         <TableCell>{o.status || '—'}</TableCell>
                         <TableCell>
                           {o._type === 'Зовн.лаб.' ? (
