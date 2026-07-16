@@ -1,4 +1,5 @@
-import { LocalNotifications } from '@capacitor/local-notifications';
+import { registerPlugin } from '@capacitor/core';
+const LocalNotifications = registerPlugin('LocalNotifications');
 
 export const NotificationService = {
   async requestPermissions() {
