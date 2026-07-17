@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Mail, Lock, UserPlus, Loader2 } from "lucide-react";
 
 // Імпортуємо клієнт Supabase
-import { supabase } from "../supabaseClient";
+import { supabase } from "../api/supabaseClient";
 
 // Імпортуємо як default (без фігурних дужок)
 import AuthLayout from "../components/AuthLayout";
