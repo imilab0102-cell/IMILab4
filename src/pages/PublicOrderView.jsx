@@ -399,7 +399,7 @@ export default function PublicOrderView() {
                 <div className="space-y-1">
                   <p className="text-[10px] font-black uppercase text-slate-800 tracking-widest">Цифрова лабораторія IMILab</p>
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
-                    {template?.company_address?.split('•')[0]?.trim()}
+                    {template?.company_address?.split(/•|тел|tel/i)[0]?.trim()?.replace(/[\s·•.\-:]+$/, '')}
                   </p>
                 </div>
               </div>

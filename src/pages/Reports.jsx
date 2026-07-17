@@ -15,10 +15,8 @@ import {
 import { format, getMonth, getYear, parseISO, isWithinInterval, startOfMonth, endOfMonth } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import * as XLSX from 'xlsx';
-import { registerPlugin } from '@capacitor/core';
 import { fetchExchangeRates } from '@/api/currencyService.js';
-
-const FunPrint = registerPlugin('FunPrint');
+import { FunPrint } from '@/lib/funPrintPlugin';
 
 const MONTHS = [
   { value: '0', label: 'Січень' }, { value: '1', label: 'Лютий' },

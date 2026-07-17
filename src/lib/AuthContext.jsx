@@ -1,6 +1,6 @@
 // src/lib/AuthContext.jsx
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { supabase } from '../supabaseClient';
+import { supabase } from '../api/supabaseClient';
 
 // 🔒 СПИСОК ДОЗВОЛЕНИХ EMAIL
 const ALLOWED_EMAILS = [

@@ -17,10 +17,8 @@ import {
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { QRCodeCanvas } from 'qrcode.react';
-import { registerPlugin } from '@capacitor/core';
 import { fetchExchangeRates } from '@/api/currencyService.js';
-
-const FunPrint = registerPlugin('FunPrint');
+import { FunPrint } from '@/lib/funPrintPlugin';
 
 const UPPER_LEFT = [18, 17, 16, 15, 14, 13, 12, 11];
 const UPPER_RIGHT = [21, 22, 23, 24, 25, 26, 27, 28];
@@ -477,7 +475,7 @@ export default function OrderDetail({ order, open, onClose, onEdit, onDuplicate,
             </div>
             <div>
               <p style="font-size: 8pt; font-weight: 900; color: #0f172a; margin: 0; text-transform: uppercase;">Цифрова лабораторія IMILab</p>
-              <p style="font-size: 7pt; font-weight: 700; color: #94a3b8; margin: 2px 0 0 0;">${(tpl.company_address || '').split('•')[0].trim()}</p>
+              <p style="font-size: 7pt; font-weight: 700; color: #94a3b8; margin: 2px 0 0 0;">${(tpl.company_address || '').split(/•|тел|tel/i)[0].trim().replace(/[\s·•.\-:]+$/, '')}</p>
             </div>
           </div>
           <div style="text-align: right; opacity: 0.3;">
