@@ -41,7 +41,8 @@ export default function Login() {
   const handleGoogle = async () => {
     setError("");
     try {
-      const redirectTo = window.Capacitor
+      const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+      const redirectTo = isNative
         ? 'com.imilab.app://auth/callback'
         : window.location.origin + '/auth/callback';
 

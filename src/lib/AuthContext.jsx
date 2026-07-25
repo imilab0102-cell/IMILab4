@@ -116,7 +116,11 @@ export const AuthProvider = ({ children }) => {
       setIsLoadingAuth(true);
       setAuthError(null);
 
-      const redirectTo = window.Capacitor
+      // ВАЖЛИВО: window.Capacitor існує завжди (навіть у звичайному браузері),
+      // бо @capacitor/core потрапляє у веб-збірку. Перевіряти треба саме
+      // isNativePlatform(), інакше браузер теж отримає кастомну схему com.imilab.app://
+      const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+      const redirectTo = isNative
         ? 'com.imilab.app://auth/callback'
         : window.location.origin + '/auth/callback';
       
