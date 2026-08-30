@@ -173,7 +173,7 @@ export default function Layout() {
 
       {/* Mobile Bottom Navigation Bar */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border flex justify-around items-center h-16 pb-safe z-50">
-        {links.filter(link => ['/', '/orders', '/clinics', '/doctors', '/external-lab'].includes(link.to)).slice(0, 5).map(link => {
+        {links.filter(link => ['/', '/orders', '/technicians', '/reports', '/external-lab'].includes(link.to)).slice(0, 5).map(link => {
           const Icon = link.icon;
           const active = location.pathname === link.to;
           return (
