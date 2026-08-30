@@ -116,6 +116,7 @@ export default function Orders() {
   const [filterDate, setFilterDate] = useState('');
   const [filterCategory, setFilterCategory] = useState('_all');
   const [filterService, setFilterService] = useState('_all');
+  const [filterPaymentStatus, setFilterPaymentStatus] = useState('_all');
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -320,6 +321,9 @@ export default function Orders() {
       // Статус
       if (filterStatus && filterStatus !== '_all' && o.status !== filterStatus) return false;
 
+      // Статус оплати
+      if (filterPaymentStatus && filterPaymentStatus !== '_all' && o.payment_status !== filterPaymentStatus) return false;
+
       // Дата (creation_date може бути timestamptz — беремо тільки дату)
       if (filterDate) {
         const orderDate = o.creation_date
@@ -353,13 +357,14 @@ export default function Orders() {
 
       return true;
     });
-  }, [orders, search, filterClinic, filterDoctor, filterStatus, filterDate, filterCategory, filterService, priceItems]);
+  }, [orders, search, filterClinic, filterDoctor, filterStatus, filterPaymentStatus, filterDate, filterCategory, filterService, priceItems]);
 
   const hasFilters = Boolean(
     search ||
     (filterClinic && filterClinic !== '_all') ||
     (filterDoctor && filterDoctor !== '_all') ||
     (filterStatus && filterStatus !== '_all') ||
+    (filterPaymentStatus && filterPaymentStatus !== '_all') ||
     filterDate ||
     (filterCategory && filterCategory !== '_all') ||
     (filterService && filterService !== '_all')
@@ -370,6 +375,7 @@ export default function Orders() {
     setFilterClinic('_all');
     setFilterDoctor('_all');
     setFilterStatus('_all');
+    setFilterPaymentStatus('_all');
     setFilterDate('');
     setFilterCategory('_all');
     setFilterService('_all');
@@ -453,6 +459,19 @@ export default function Orders() {
             <SelectContent>
               <SelectItem value="_all">Всі статуси</SelectItem>
               {ORDER_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+            </SelectContent>
+          </Select>
+
+          {/* Оплата */}
+          <Select value={filterPaymentStatus} onValueChange={setFilterPaymentStatus}>
+            <SelectTrigger className="h-8 text-xs w-36">
+              <SelectValue placeholder="Статус оплати" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">Вся оплата</SelectItem>
+              <SelectItem value="Оплачено">✅ Оплачено</SelectItem>
+              <SelectItem value="Частково">🟡 Частково</SelectItem>
+              <SelectItem value="Борг">🔴 Борг</SelectItem>
             </SelectContent>
           </Select>
 

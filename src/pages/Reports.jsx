@@ -37,6 +37,7 @@ export default function Reports() {
   const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
   const [selectedClinic, setSelectedClinic] = useState('_all');
   const [selectedDoctor, setSelectedDoctor] = useState('_all');
+  const [selectedPaymentStatus, setSelectedPaymentStatus] = useState('_all');
   const [reportCurrency, setReportCurrency] = useState('UAH');
   const [activeTab, setActiveTab] = useState('table');
   const [exchangeRates, setExchangeRates] = useState({ USD: 41.5, EUR: 44.5 });
@@ -163,10 +164,11 @@ export default function Reports() {
         const cId = o.clinic_id?.toString() || 'none';
         if (selectedClinic !== '_all' && cId !== selectedClinic) return false;
         if (selectedDoctor !== '_all' && o.doctor_name !== selectedDoctor) return false;
+        if (selectedPaymentStatus !== '_all' && o.payment_status !== selectedPaymentStatus) return false;
         return true;
       } catch (e) { return false; }
     });
-  }, [orders, filterMode, dateFrom, dateTo, selectedMonth, selectedYear, selectedClinic, selectedDoctor]);
+  }, [orders, filterMode, dateFrom, dateTo, selectedMonth, selectedYear, selectedClinic, selectedDoctor, selectedPaymentStatus]);
 
   const activeOrders = useMemo(() => filteredOrders.filter(o => o && o.status && String(o.status).toLowerCase().trim() !== 'скасовано'), [filteredOrders]);
 
@@ -445,7 +447,7 @@ export default function Reports() {
             <button onClick={() => setFilterMode('period')} className={`px-5 py-2 text-xs font-black rounded-lg transition-all ${filterMode==='period'?'bg-white shadow text-blue-700':'text-slate-500'}`}>ПЕРІОД</button>
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
           {filterMode === 'month' ? (
             <div className="flex gap-2 w-full lg:col-span-1"><select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="h-11 flex-1 border-2 border-slate-100 rounded-xl px-3 text-sm font-bold bg-slate-50">{MONTHS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}</select><select value={selectedYear} onChange={e => setSelectedYear(e.target.value)} className="h-11 w-24 border-2 border-slate-100 rounded-xl px-3 text-sm font-bold bg-slate-50">{YEARS.map(y => <option key={y} value={String(y)}>{y}</option>)}</select></div>
           ) : (
@@ -453,6 +455,7 @@ export default function Reports() {
           )}
           <div className="space-y-1 w-full"><Label className="text-[10px] font-black uppercase text-slate-400 ml-2">Клініка</Label><Select value={selectedClinic} onValueChange={handleClinicChange}><SelectTrigger className="h-11 border-2 border-slate-100 rounded-xl bg-slate-50 font-bold"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="_all">🏥 Всі клініки</SelectItem>{filterOptions.clinics.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select></div>
           <div className="space-y-1 w-full"><Label className="text-[10px] font-black uppercase text-slate-400 ml-2">Лікар</Label><Select value={selectedDoctor} onValueChange={handleDoctorChange}><SelectTrigger className="h-11 border-2 border-slate-100 rounded-xl bg-slate-50 font-bold"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="_all">👨‍⚕️ Всі лікарі</SelectItem>{filterOptions.doctors.map(dName => <SelectItem key={dName} value={dName}>{dName}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 w-full"><Label className="text-[10px] font-black uppercase text-slate-400 ml-2">Оплата</Label><Select value={selectedPaymentStatus} onValueChange={setSelectedPaymentStatus}><SelectTrigger className="h-11 border-2 border-slate-100 rounded-xl bg-slate-50 font-bold"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="_all">💰 Вся оплата</SelectItem><SelectItem value="Оплачено">✅ Оплачено</SelectItem><SelectItem value="Частково">🟡 Частково</SelectItem><SelectItem value="Борг">🔴 Борг</SelectItem></SelectContent></Select></div>
           <div className="space-y-1 w-full"><Label className="text-[10px] font-black uppercase text-blue-500 ml-2">Валюта</Label><Select value={reportCurrency} onValueChange={setReportCurrency}><SelectTrigger className="h-11 border-2 border-blue-200 rounded-xl bg-blue-50 font-black text-blue-700 shadow-sm"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="UAH">🇺🇦 UAH</SelectItem><SelectItem value="USD">🇺🇸 USD</SelectItem><SelectItem value="EUR">🇪🇺 EUR</SelectItem><SelectItem value="ORIGINAL">📦 БД</SelectItem></SelectContent></Select></div>
         </div>
       </div>
