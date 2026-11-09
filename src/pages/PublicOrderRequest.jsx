@@ -11,7 +11,7 @@ import {
 } from '@/lib/orderRequestOptions';
 
 const emptyForm = {
-  doctor_name: '', doctor_phone: '',
+  doctor_id: '', doctor_name: '', doctor_phone: '',
   patient_name: '', patient_age: '', patient_gender: '',
   impression_date: '', try_in_date: '', due_date: '', due_time: '',
   urgent: false,
@@ -28,7 +28,7 @@ const emptyForm = {
 const ERRORS = {
   invalid_link: 'Посилання недійсне. Зверніться до лабораторії.',
   rate_limited: 'Забагато нарядів за короткий час. Спробуйте трохи пізніше.',
-  missing_fields: "Заповніть ПІБ лікаря та пацієнта.",
+  missing_fields: "Заповніть ПІБ пацієнта.",
   too_large: 'Наряд занадто великий. Скоротіть примітки.',
 };
 
@@ -174,6 +174,8 @@ export default function PublicOrderRequest() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [sentId, setSentId] = useState(null);
+  const [doctors, setDoctors] = useState([]);
+  const [manualDoctor, setManualDoctor] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -182,11 +184,28 @@ export default function PublicOrderRequest() {
       if (cancelled) return;
       if (err || !data || !data.length) { setLoadState('invalid'); return; }
       setClinicName(data[0].clinic_name);
-      setLoadState('ok');
+
+      let list = [];
       try {
-        const saved = JSON.parse(localStorage.getItem(storageKey(token)) || 'null');
-        if (saved) setForm(f => ({ ...f, doctor_name: saved.doctor_name || '', doctor_phone: saved.doctor_phone || '' }));
-      } catch { /* ignore */ }
+        const { data: docs } = await supabase.rpc('get_order_request_doctors', { p_token: token });
+        list = Array.isArray(docs) ? docs : [];
+      } catch { /* форма працює і без списку лікарів */ }
+      if (cancelled) return;
+      setDoctors(list);
+
+      let saved = null;
+      try { saved = JSON.parse(localStorage.getItem(storageKey(token)) || 'null'); } catch { /* ignore */ }
+
+      if (list.length === 1) {
+        setForm(f => ({ ...f, doctor_id: list[0].id, doctor_name: list[0].full_name || '', doctor_phone: list[0].phone || '' }));
+      } else if (saved?.doctor_id && list.some(d => d.id === saved.doctor_id)) {
+        const d = list.find(x => x.id === saved.doctor_id);
+        setForm(f => ({ ...f, doctor_id: d.id, doctor_name: d.full_name || '', doctor_phone: d.phone || '' }));
+      } else if (saved && (saved.doctor_name || saved.doctor_phone)) {
+        setForm(f => ({ ...f, doctor_name: saved.doctor_name || '', doctor_phone: saved.doctor_phone || '' }));
+        if (list.length) setManualDoctor(true);
+      }
+      setLoadState('ok');
     })();
     return () => { cancelled = true; };
   }, [token]);
@@ -202,7 +221,7 @@ export default function PublicOrderRequest() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (form.doctor_name.trim().length < 2 || form.patient_name.trim().length < 2) {
+    if (form.patient_name.trim().length < 2) {
       setError(ERRORS.missing_fields);
       return;
     }
@@ -222,6 +241,7 @@ export default function PublicOrderRequest() {
       } : {}),
     };
     const payload = {
+      doctor_id: form.doctor_id || '',
       doctor_name: form.doctor_name.trim(),
       doctor_phone: form.doctor_phone.trim(),
       patient_name: form.patient_name.trim(),
@@ -245,14 +265,14 @@ export default function PublicOrderRequest() {
       return;
     }
     try {
-      localStorage.setItem(storageKey(token), JSON.stringify({ doctor_name: payload.doctor_name, doctor_phone: payload.doctor_phone }));
+      localStorage.setItem(storageKey(token), JSON.stringify({ doctor_id: payload.doctor_id, doctor_name: payload.doctor_name, doctor_phone: payload.doctor_phone }));
     } catch { /* ignore */ }
     setSentId(data || true);
     window.scrollTo({ top: 0 });
   };
 
   const startNew = () => {
-    setForm(f => ({ ...emptyForm, doctor_name: f.doctor_name, doctor_phone: f.doctor_phone }));
+    setForm(f => ({ ...emptyForm, doctor_id: f.doctor_id, doctor_name: f.doctor_name, doctor_phone: f.doctor_phone }));
     setSentId(null);
     setError('');
   };
@@ -308,8 +328,59 @@ export default function PublicOrderRequest() {
         </div>
 
         <Section title="Лікар і пацієнт">
-          <Field label="ПІБ лікаря *"><Input value={form.doctor_name} onChange={setInput('doctor_name')} autoComplete="name" /></Field>
-          <Field label="Телефон лікаря"><Input type="tel" value={form.doctor_phone} onChange={setInput('doctor_phone')} autoComplete="tel" /></Field>
+          {doctors.length > 0 && !manualDoctor ? (
+            <div className="space-y-2">
+              <span className="text-sm text-slate-600">Лікар</span>
+              <div className="grid gap-2">
+                {doctors.map(d => {
+                  const on = form.doctor_id === d.id;
+                  return (
+                    <button
+                      type="button"
+                      key={d.id}
+                      onClick={() => setForm(f => (on && doctors.length > 1
+                        ? { ...f, doctor_id: '', doctor_name: '', doctor_phone: '' }
+                        : { ...f, doctor_id: d.id, doctor_name: d.full_name || '', doctor_phone: d.phone || '' }))}
+                      className={`text-left px-3 py-2.5 rounded-xl border transition-colors ${
+                        on ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-800 border-slate-300'
+                      }`}
+                    >
+                      <span className="block font-semibold">{d.full_name}</span>
+                      {d.phone && <span className={`block text-xs ${on ? 'text-slate-300' : 'text-slate-500'}`}>{d.phone}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                className="text-sm text-slate-500 underline"
+                onClick={() => { setManualDoctor(true); setForm(f => ({ ...f, doctor_id: '', doctor_name: '', doctor_phone: '' })); }}
+              >
+                Іншого лікаря немає у списку
+              </button>
+            </div>
+          ) : (
+            <>
+              <Field label="ПІБ лікаря"><Input value={form.doctor_name} onChange={setInput('doctor_name')} autoComplete="name" /></Field>
+              <Field label="Телефон лікаря"><Input type="tel" value={form.doctor_phone} onChange={setInput('doctor_phone')} autoComplete="tel" /></Field>
+              {doctors.length > 0 && (
+                <button
+                  type="button"
+                  className="text-sm text-slate-500 underline"
+                  onClick={() => {
+                    setManualDoctor(false);
+                    if (doctors.length === 1) {
+                      setForm(f => ({ ...f, doctor_id: doctors[0].id, doctor_name: doctors[0].full_name || '', doctor_phone: doctors[0].phone || '' }));
+                    } else {
+                      setForm(f => ({ ...f, doctor_name: '', doctor_phone: '' }));
+                    }
+                  }}
+                >
+                  Обрати зі списку лікарів клініки
+                </button>
+              )}
+            </>
+          )}
           <Field label="ПІБ пацієнта *"><Input value={form.patient_name} onChange={setInput('patient_name')} /></Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Вік"><Input inputMode="numeric" value={form.patient_age} onChange={e => set('patient_age')(e.target.value.replace(/\D/g, '').slice(0, 3))} /></Field>

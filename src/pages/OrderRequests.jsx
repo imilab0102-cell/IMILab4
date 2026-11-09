@@ -63,7 +63,7 @@ function RequestDetail({ request, onClose, onCreateOrder, onReject, onDelete, bu
             {request.urgent && <span className="text-xs font-bold bg-red-600 text-white rounded px-2 py-0.5">ТЕРМІНОВО</span>}
           </DialogTitle>
           <DialogDescription>
-            {request.clinic_name} · {request.doctor_name} · надіслано {fmtDateTime(request.created_at)}
+            {request.clinic_name} · {request.doctor_name || 'лікар не вказаний'} · надіслано {fmtDateTime(request.created_at)}
           </DialogDescription>
         </DialogHeader>
 
@@ -306,6 +306,7 @@ export default function OrderRequests() {
         const list = docs || [];
         const sameClinic = list.filter(doc => !r.clinic_id || String(doc.clinic_id) === String(r.clinic_id));
         const match =
+          (r.doctor_id && list.find(doc => String(doc.id) === String(r.doctor_id))) ||
           sameClinic.find(doc => norm(doc.full_name) === name) ||
           list.find(doc => norm(doc.full_name) === name) ||
           sameClinic.find(doc => name && (norm(doc.full_name).includes(name) || name.includes(norm(doc.full_name).split(' ')[0] || '—')));
@@ -332,7 +333,7 @@ export default function OrderRequests() {
         due_date: r.due_date || '',
         tooth_color: d.shade_main || '',
         selected_teeth: Object.keys(d.teeth || {}).map(t => parseInt(t, 10)).filter(t => !isNaN(t)),
-        notes: (doctorId === 'none' ? `Лікар: ${r.doctor_name}\n` : '') + (r.urgent ? 'ТЕРМІНОВО\n' : '') + summary,
+        notes: (doctorId === 'none' && r.doctor_name ? `Лікар: ${r.doctor_name}\n` : '') + (r.urgent ? 'ТЕРМІНОВО\n' : '') + summary,
         file_urls: fileUrls,
         status: 'Новий',
       };
@@ -382,7 +383,7 @@ export default function OrderRequests() {
                       {r.urgent && <Flame className="w-4 h-4 text-red-600 shrink-0" />}
                     </div>
                     <p className="text-xs text-muted-foreground truncate">
-                      {r.clinic_name} · {r.doctor_name} · {fmtDateTime(r.created_at)}
+                      {r.clinic_name} · {r.doctor_name || 'лікар не вказаний'} · {fmtDateTime(r.created_at)}
                       {r.due_date ? ` · здача ${fmtDate(r.due_date)}` : ''}
                     </p>
                   </div>
