@@ -13,6 +13,7 @@ import { withDefaults } from '@/lib/technicianPermissions';
 import { Textarea } from '@/components/ui/textarea';
 import { NewOrderDialog, AdjustmentForm } from '@/components/technicians/TechCabinetDialogs';
 import ExternalLab from '@/pages/ExternalLab';
+import Orders from '@/pages/Orders';
 import { format, getMonth, getYear, parseISO, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { Search, Calendar, UserRound, Building2, FileText, LogOut, TrendingUp, Loader2, Paperclip, Wallet, ListChecks, FlaskConical, Plus, Trash2 } from 'lucide-react';
@@ -378,6 +379,7 @@ export default function TechnicianOrders() {
 
       <div className="flex gap-1 border-b overflow-x-auto">
         {tabBtn('orders', 'Мої наряди', FileText)}
+        {perms.full_orders && tabBtn('all-orders', 'Усі наряди', FileText)}
         {perms.see_earnings && tabBtn('money', 'Заробіток', Wallet)}
         {perms.add_external && tabBtn('external', 'Зовнішні лаби', FlaskConical)}
         {perms.see_services && tabBtn('services', 'Мої послуги', ListChecks)}
@@ -538,6 +540,8 @@ export default function TechnicianOrders() {
           </Card>
         </div>
       )}
+
+      {activeTab === 'all-orders' && perms.full_orders && <Orders />}
 
       {activeTab === 'external' && perms.add_external && <ExternalLab />}
 

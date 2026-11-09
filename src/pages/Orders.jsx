@@ -108,7 +108,8 @@ const parseItems = (raw) => {
 
 export default function Orders() {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  // Технік із правом «Наряди як у власника» має тут ті самі можливості
+  const isAdmin = user?.role === 'admin' || (user?.role === 'technician' && !!user?.permissions?.full_orders);
   const [view, setView] = useState('kanban');
   const [search, setSearch] = useState('');
   const [filterClinic, setFilterClinic] = useState('_all');
