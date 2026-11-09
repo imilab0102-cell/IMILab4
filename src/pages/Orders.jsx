@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../api/supabaseClient';
 import { useAuth } from '@/lib/AuthContext';
@@ -121,6 +122,18 @@ export default function Orders() {
   const [editing, setEditing] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const qc = useQueryClient();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Наряд із заявки лікаря (сторінка «Заявки лікарів» → «Створити наряд»)
+  useEffect(() => {
+    const prefill = location.state?.prefillOrder;
+    if (prefill) {
+      setEditing(prefill);
+      setFormOpen(true);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Замовлення (головне джерело) ────────────────────────────────────────
   const { data: rawOrders, isLoading } = useQuery({
@@ -283,6 +296,15 @@ export default function Orders() {
           .insert([{ ...finalPayload, order_number: formData.order_number || generateOrderNumber() }])
           .select().single();
         if (error) throw error;
+        // Якщо наряд створено із заявки лікаря — позначаємо заявку прийнятою
+        if (formData._request_id) {
+          try {
+            await supabase.from('order_request')
+              .update({ status: 'Прийнято', work_order_id: String(data.id) })
+              .eq('id', formData._request_id);
+            qc.invalidateQueries({ queryKey: ['order-requests'] });
+          } catch (e) { console.error('Не вдалося оновити заявку:', e); }
+        }
         // Запланувати нагадування
         scheduleDeadlineReminder(data);
         return data;
@@ -549,7 +571,7 @@ export default function Orders() {
       <Dialog open={formOpen} onOpenChange={(v) => { if (!v) { setFormOpen(false); setEditing(null); } }}>
         <DialogContent className="max-w-5xl w-full p-0 overflow-hidden max-h-[95vh] overflow-y-auto">
           <span style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', borderWidth: 0 }}>
-            <DialogTitle>{editing ? 'Редагування наряду' : 'Новий наряд-замовлення'}</DialogTitle>
+            <DialogTitle>{editing?.id ? 'Редагування наряду' : 'Новий наряд-замовлення'}</DialogTitle>
             <DialogDescription>Форма створення або редагування наряду</DialogDescription>
           </span>
           <OrderForm

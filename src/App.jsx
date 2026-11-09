@@ -33,6 +33,8 @@ import OrderSettings from '@/pages/OrderSettings';
 import TechnicianSalaryReport from '@/pages/TechnicianSalaryReport';
 import AuthCallback from '@/pages/AuthCallback'; // ← ОДИН РАЗ
 import PublicOrderView from '@/pages/PublicOrderView';
+import PublicOrderRequest from '@/pages/PublicOrderRequest';
+import OrderRequests from '@/pages/OrderRequests';
 
 const AppRoutes = () => {
   return (
@@ -43,11 +45,13 @@ const AppRoutes = () => {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/auth/callback" element={<AuthCallback />} /> {/* ← ОДИН РАЗ */}
       <Route path="/p/order/:id" element={<PublicOrderView />} />
+      <Route path="/p/naryad/:token" element={<PublicOrderRequest />} />
 
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
         <Route element={<Layout />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/orders" element={<Orders />} />
+          <Route path="/order-requests" element={<OrderRequests />} />
           <Route path="/clinics" element={<Clinics />} />
           <Route path="/doctors" element={<Doctors />} />
           <Route path="/technicians" element={<Technicians />} />
