@@ -76,7 +76,7 @@ export const AuthProvider = ({ children }) => {
     is_admin: false,
     isAdmin: false,
     is_owner: false,
-    permissions: [],
+    permissions: tech.permissions || {},
   });
 
   // Визначає, хто увійшов: власник, технік або ніхто

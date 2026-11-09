@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import StatusBadge from '@/components/StatusBadge';
 import { ORDER_STATUSES } from '@/lib/constants';
+import { withDefaults } from '@/lib/technicianPermissions';
+import { Textarea } from '@/components/ui/textarea';
 import { format, getMonth, getYear, parseISO, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { Search, Calendar, UserRound, Building2, FileText, LogOut, TrendingUp, Loader2, Paperclip, Wallet, ListChecks } from 'lucide-react';
@@ -38,7 +40,7 @@ const parseJson = (v, fallback) => {
   try { return JSON.parse(v); } catch { return fallback; }
 };
 
-function OrderDialog({ order, onClose }) {
+function OrderDialog({ order, onClose, perms }) {
   const qc = useQueryClient();
   const items = Array.isArray(order.items) ? order.items : [];
   const teeth = (order.selected_teeth || []).map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b);
@@ -58,7 +60,18 @@ function OrderDialog({ order, onClose }) {
     onError: (e) => alert(`Не вдалося змінити статус: ${e.message}`),
   });
 
+  const [note, setNote] = useState('');
+  const addNote = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc('add_my_order_note', { p_id: String(order.id), p_text: note });
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['my-orders'] }); onClose(); },
+    onError: (e) => alert(`Не вдалося додати примітку: ${e.message}`),
+  });
+
   const locked = LOCKED.includes(order.status);
+  const mine = order.is_mine !== false;
 
   return (
     <Dialog open onOpenChange={(v) => { if (!v) onClose(); }}>
@@ -68,7 +81,7 @@ function OrderDialog({ order, onClose }) {
             {order.patient_name || 'Без імені'} <StatusBadge status={order.status} />
           </DialogTitle>
           <DialogDescription>
-            {order.order_number} · {order.clinic_name || '—'} · {order.doctor_name || '—'}
+            {[order.order_number, order.clinic_name, order.doctor_name, !mine && order.technician_name && `технік: ${order.technician_name}`].filter(Boolean).join(' · ')}
           </DialogDescription>
         </DialogHeader>
 
@@ -139,6 +152,17 @@ function OrderDialog({ order, onClose }) {
             </div>
           )}
 
+          {mine && perms.add_notes && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground">Додати примітку</p>
+              <Textarea rows={2} value={note} onChange={e => setNote(e.target.value)} maxLength={1000} placeholder="Напр.: потрібен новий відбиток" />
+              <Button size="sm" variant="outline" disabled={!note.trim() || addNote.isPending} onClick={() => addNote.mutate()}>
+                {addNote.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Додати'}
+              </Button>
+            </div>
+          )}
+
+          {mine && perms.change_status && (
           <div className="pt-2 border-t">
             <p className="text-xs font-semibold text-muted-foreground mb-2">Змінити статус</p>
             {locked ? (
@@ -159,6 +183,7 @@ function OrderDialog({ order, onClose }) {
               </div>
             )}
           </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -168,6 +193,8 @@ function OrderDialog({ order, onClose }) {
 export default function TechnicianOrders() {
   const { user } = useAuth();
   const isTechnician = user?.role === 'technician';
+  const perms = withDefaults(user?.permissions);
+  const [scope, setScope] = useState('mine');
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [statusFilter, setStatusFilter] = useState('active');
   const [search, setSearch] = useState('');
@@ -190,7 +217,7 @@ export default function TechnicianOrders() {
 
   const { data: services = [] } = useQuery({
     queryKey: ['my-services'],
-    enabled: isTechnician && activeTab === 'services',
+    enabled: isTechnician && activeTab === 'services' && perms.see_services,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_my_services');
       if (error) throw error;
@@ -222,6 +249,7 @@ export default function TechnicianOrders() {
     const start = startOfMonth(new Date(parseInt(selectedYear), parseInt(selectedMonth), 1));
     const end = endOfMonth(start);
     const inPeriod = orders.filter(o => {
+      if (o.is_mine === false) return false;
       if (!o.creation_date || o.status === 'Скасований') return false;
       try { return isWithinInterval(parseISO(o.creation_date), { start, end }); } catch { return false; }
     });
@@ -233,6 +261,7 @@ export default function TechnicianOrders() {
   }, [orders, selectedMonth, selectedYear]);
 
   const filteredOrders = useMemo(() => orders.filter(o => {
+    if (scope === 'mine' && o.is_mine === false) return false;
     if (statusFilter === 'active' && LOCKED.includes(o.status)) return false;
     if (statusFilter !== 'active' && statusFilter !== 'all' && o.status !== statusFilter) return false;
     if (search) {
@@ -247,7 +276,7 @@ export default function TechnicianOrders() {
     if (a.due_date) return -1;
     if (b.due_date) return 1;
     return 0;
-  }), [orders, statusFilter, search]);
+  }), [orders, statusFilter, search, scope]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -294,12 +323,18 @@ export default function TechnicianOrders() {
 
       <div className="flex gap-1 border-b overflow-x-auto">
         {tabBtn('orders', 'Мої наряди', FileText)}
-        {tabBtn('money', 'Заробіток', Wallet)}
-        {tabBtn('services', 'Мої послуги', ListChecks)}
+        {perms.see_earnings && tabBtn('money', 'Заробіток', Wallet)}
+        {perms.see_services && tabBtn('services', 'Мої послуги', ListChecks)}
       </div>
 
       {activeTab === 'orders' && (
         <div className="space-y-3">
+          {perms.see_all_orders && (
+            <div className="flex gap-2">
+              <Button size="sm" variant={scope === 'mine' ? 'default' : 'outline'} onClick={() => setScope('mine')}>Мої</Button>
+              <Button size="sm" variant={scope === 'all' ? 'default' : 'outline'} onClick={() => setScope('all')}>Усі наряди лабораторії</Button>
+            </div>
+          )}
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -335,8 +370,9 @@ export default function TechnicianOrders() {
                       <StatusBadge status={order.status} />
                     </div>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><Building2 className="w-3 h-3" />{order.clinic_name || '—'}</span>
-                      <span className="flex items-center gap-1"><UserRound className="w-3 h-3" />{order.doctor_name || '—'}</span>
+                      {perms.see_clinic_doctor && <span className="flex items-center gap-1"><Building2 className="w-3 h-3" />{order.clinic_name || '—'}</span>}
+                      {perms.see_clinic_doctor && <span className="flex items-center gap-1"><UserRound className="w-3 h-3" />{order.doctor_name || '—'}</span>}
+                      {order.is_mine === false && <span className="flex items-center gap-1">технік: {order.technician_name || '—'}</span>}
                       {order.due_date && (
                         <span className="flex items-center gap-1 font-medium text-foreground">
                           <Calendar className="w-3 h-3" />здача {fmt(order.due_date, 'd MMM')}
@@ -454,7 +490,7 @@ export default function TechnicianOrders() {
         </Card>
       )}
 
-      {selectedOrder && <OrderDialog order={selectedOrder} onClose={() => setSelectedOrder(null)} />}
+      {selectedOrder && <OrderDialog order={selectedOrder} perms={perms} onClose={() => setSelectedOrder(null)} />}
     </div>
   );
 }

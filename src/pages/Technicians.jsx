@@ -10,10 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Pencil, Plus, Trash2, UserCheck, UserX } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import TechnicianSalaryCard from '@/components/technicians/TechnicianSalaryCard';
+import { TECH_PERMISSIONS, withDefaults, defaultPermissions } from '@/lib/technicianPermissions';
 
 const SPECIALIZATIONS = ['Кераміст', 'Знімник', 'Ортодонт', 'CAD/CAM', 'Універсал'];
 
-const emptyForm = { full_name: '', specialization: '', phone: '', email: '', is_active: true };
+const emptyForm = { full_name: '', specialization: '', phone: '', email: '', is_active: true, permissions: defaultPermissions() };
 
 export default function Technicians() {
   const [open, setOpen] = useState(false);
@@ -50,6 +51,7 @@ export default function Technicians() {
         specialization: formData.specialization || null,
         phone: formData.phone || null,
         email: (formData.email || '').trim().toLowerCase() || null,
+        permissions: withDefaults(formData.permissions),
         is_active: formData.is_active ?? true
       };
 
@@ -119,6 +121,7 @@ export default function Technicians() {
       specialization: t.specialization || '',
       phone: t.phone || '',
       email: t.email || '',
+      permissions: withDefaults(t.permissions),
       is_active: t.is_active ?? true
     });
     setOpen(true);
@@ -208,9 +211,30 @@ export default function Technicians() {
                 placeholder="tech@gmail.com"
               />
               <p className="text-xs text-muted-foreground">
-                Технік входить у додаток через Google з цією поштою і бачить лише свої наряди без цін і фінансів лабораторії.
+                Технік входить у додаток через Google з цією поштою (Gmail). Ціни для клініки та фінанси лабораторії йому не видно ніколи.
+                Щоб забрати доступ — очистіть поле або вимкніть техніка.
               </p>
             </div>
+
+            {(form.email || '').trim() && (
+              <div className="space-y-2 rounded-md border p-3">
+                <Label className="text-sm font-medium">Що може технік</Label>
+                <div className="space-y-2.5">
+                  {TECH_PERMISSIONS.map(p => (
+                    <div key={p.key} className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm leading-tight">{p.label}</p>
+                        {p.hint && <p className="text-xs text-muted-foreground">{p.hint}</p>}
+                      </div>
+                      <Switch
+                        checked={!!withDefaults(form.permissions)[p.key]}
+                        onCheckedChange={checked => setForm({ ...form, permissions: { ...withDefaults(form.permissions), [p.key]: checked } })}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Блок активації/деактивації техніка відповідно до булевого поля is_active у схемі */}
             <div className="flex items-center justify-between bg-gray-50 p-3 rounded-md border">
