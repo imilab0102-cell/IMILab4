@@ -109,12 +109,13 @@ const AuthenticatedApp = () => {
       });
     };
 
-    if (window.Capacitor) {
+    const isNative = !!window.Capacitor?.isNativePlatform?.();
+    if (isNative) {
       setupDeepLinks();
     }
 
     return () => {
-      CapApp.removeAllListeners();
+      if (isNative) CapApp.removeAllListeners().catch(() => {});
     };
   }, [navigate]);
 
@@ -146,7 +147,7 @@ const AuthenticatedApp = () => {
 
 function App() {
   useEffect(() => {
-    if (window.Capacitor) {
+    if (window.Capacitor?.isNativePlatform?.()) {
       NotificationService.requestPermissions();
     }
   }, []);
