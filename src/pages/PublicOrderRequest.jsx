@@ -1,18 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/api/supabaseClient';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Loader2, AlertCircle, CheckCircle2, Upload, X, FileText, Phone } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle2, Phone } from 'lucide-react';
 import {
   UPPER_TEETH, LOWER_TEETH, TOOTH_MARKS, markByCode, WORK_TYPES, MATERIALS,
   SHADE_SYSTEMS, TRANSLUCENCY, FISSURES, OCCLUSION, IMPLANT_FIXATION, ABUTMENT_TYPES, ENCLOSED,
 } from '@/lib/orderRequestOptions';
-
-const BUCKET = 'order-requests';
-const MAX_FILES = 15;
-const MAX_FILE_MB = 15;
 
 const emptyForm = {
   doctor_name: '', doctor_phone: '',
@@ -141,12 +137,10 @@ export default function PublicOrderRequest() {
   const [clinicName, setClinicName] = useState(null);
   const [loadState, setLoadState] = useState('loading'); // loading | ok | invalid
   const [form, setForm] = useState(emptyForm);
-  const [files, setFiles] = useState([]); // { name, path, status: 'uploading'|'done'|'error' }
   const [hp, setHp] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [sentId, setSentId] = useState(null);
-  const fileInput = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -172,43 +166,11 @@ export default function PublicOrderRequest() {
     form.work_types.includes('Індивідуальний абатмент') ||
     Object.values(form.teeth).includes('І');
 
-  const handleFiles = async (e) => {
-    const selected = Array.from(e.target.files || []);
-    e.target.value = '';
-    if (!selected.length) return;
-    if (files.length + selected.length > MAX_FILES) {
-      setError(`Можна додати не більше ${MAX_FILES} файлів.`);
-      return;
-    }
-    setError('');
-    for (const file of selected) {
-      if (file.size > MAX_FILE_MB * 1024 * 1024) {
-        setFiles(list => [...list, { name: file.name, path: null, status: 'error', reason: `більше ${MAX_FILE_MB} МБ` }]);
-        continue;
-      }
-      const ext = (file.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'bin';
-      const path = `${token}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const entry = { name: file.name, path, status: 'uploading' };
-      setFiles(list => [...list, entry]);
-      const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file, {
-        upsert: false,
-        contentType: file.type || 'application/octet-stream',
-      });
-      setFiles(list => list.map(f => (f.path === path ? { ...f, status: upErr ? 'error' : 'done', reason: upErr ? 'не завантажено' : undefined } : f)));
-    }
-  };
-
-  const removeFile = (idx) => setFiles(list => list.filter((_, i) => i !== idx));
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     if (form.doctor_name.trim().length < 2 || form.patient_name.trim().length < 2) {
       setError(ERRORS.missing_fields);
-      return;
-    }
-    if (files.some(f => f.status === 'uploading')) {
-      setError('Зачекайте, доки завантажаться файли.');
       return;
     }
     setSubmitting(true);
@@ -239,7 +201,6 @@ export default function PublicOrderRequest() {
       urgent: form.urgent,
       notes: form.notes.trim(),
       details,
-      file_paths: files.filter(f => f.status === 'done').map(f => f.path),
     };
     const { data, error: err } = await supabase.rpc('submit_order_request', {
       p_token: token, p_payload: payload, p_hp: hp,
@@ -259,7 +220,6 @@ export default function PublicOrderRequest() {
 
   const startNew = () => {
     setForm(f => ({ ...emptyForm, doctor_name: f.doctor_name, doctor_phone: f.doctor_phone }));
-    setFiles([]);
     setSentId(null);
     setError('');
   };
@@ -398,28 +358,6 @@ export default function PublicOrderRequest() {
 
         <Section title="До наряду додається">
           <Chips multiple options={ENCLOSED} value={form.enclosed} onChange={set('enclosed')} />
-        </Section>
-
-        <Section title="Фото / скани">
-          <input ref={fileInput} type="file" multiple accept="image/*,.pdf,.stl,.zip" className="hidden" onChange={handleFiles} />
-          <Button type="button" variant="outline" className="w-full gap-2" onClick={() => fileInput.current?.click()}>
-            <Upload className="w-4 h-4" /> Додати фото або файли
-          </Button>
-          {files.length > 0 && (
-            <ul className="space-y-1.5">
-              {files.map((f, i) => (
-                <li key={f.path || `${f.name}-${i}`} className="flex items-center gap-2 text-sm bg-slate-50 rounded-lg px-2 py-1.5">
-                  {f.status === 'uploading' ? <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
-                    : f.status === 'error' ? <AlertCircle className="w-4 h-4 text-red-500" />
-                    : <FileText className="w-4 h-4 text-emerald-600" />}
-                  <span className="flex-1 truncate">{f.name}{f.reason ? ` — ${f.reason}` : ''}</span>
-                  {f.status !== 'uploading' && (
-                    <button type="button" onClick={() => removeFile(i)} className="p-1 text-slate-400"><X className="w-4 h-4" /></button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
         </Section>
 
         <Section title="Примітки">
