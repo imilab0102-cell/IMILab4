@@ -62,6 +62,63 @@ export const AuthProvider = ({ children }) => {
     };
   };
 
+  // Профіль техніка (роль визначає база: технік = email вписаний у «Техніки»)
+  const buildTechnicianProfile = (supabaseUser, tech) => ({
+    id: tech.technician_id,
+    user_id: supabaseUser.id,
+    email: supabaseUser.email,
+    technician_id: tech.technician_id,
+    username: tech.full_name,
+    full_name: tech.full_name,
+    specialization: tech.specialization || '',
+    role: 'technician',
+    user_role: 'technician',
+    is_admin: false,
+    isAdmin: false,
+    is_owner: false,
+    permissions: [],
+  });
+
+  // Визначає, хто увійшов: власник, технік або ніхто
+  const resolveProfile = async (supabaseUser) => {
+    if (isEmailAllowed(supabaseUser.email)) return buildAdminProfile(supabaseUser);
+    try {
+      const { data, error } = await supabase.rpc('get_my_role');
+      if (error) throw error;
+      const row = Array.isArray(data) ? data[0] : data;
+      if (row?.role === 'owner') return buildAdminProfile(supabaseUser);
+      if (row?.role === 'technician' && row.technician_id) return buildTechnicianProfile(supabaseUser, row);
+    } catch (e) {
+      console.error('Не вдалося визначити роль:', e);
+    }
+    return null;
+  };
+
+  const applySession = async (session) => {
+    if (session && session.user) {
+      const profile = await resolveProfile(session.user);
+      if (profile) {
+        setIsAuthenticated(true);
+        setUser(profile);
+        setMyTechnician(profile);
+        setAuthError(null);
+      } else {
+        setIsAuthenticated(false);
+        setUser(null);
+        setMyTechnician(null);
+        setAuthError({
+          type: 'user_not_registered',
+          message: 'Ваш email не має доступу до цього додатку'
+        });
+        await supabase.auth.signOut();
+      }
+    } else {
+      setUser(null);
+      setMyTechnician(null);
+      setIsAuthenticated(false);
+    }
+  };
+
   const checkAppState = async () => {
     try {
       setIsLoadingAuth(true);
@@ -71,32 +128,7 @@ export const AuthProvider = ({ children }) => {
       
       if (error) throw error;
 
-      if (session && session.user) {
-        const userEmail = session.user.email;
-        
-        // 🔒 ПЕРЕВІРЯЄМО EMAIL
-        if (isEmailAllowed(userEmail)) {
-          setIsAuthenticated(true);
-          const profile = buildAdminProfile(session.user);
-          setUser(profile);
-          setMyTechnician(profile);
-          console.log('✅ Доступ дозволено для:', userEmail);
-        } else {
-          console.log('❌ Доступ заборонено для:', userEmail);
-          setIsAuthenticated(false);
-          setUser(null);
-          setMyTechnician(null);
-          setAuthError({
-            type: 'user_not_registered',
-            message: 'Ваш email не має доступу до цього додатку'
-          });
-          await supabase.auth.signOut();
-        }
-      } else {
-        setUser(null);
-        setMyTechnician(null);
-        setIsAuthenticated(false);
-      }
+      await applySession(session);
     } catch (error) {
       console.error('App state check failed:', error);
       setAuthError({
@@ -157,37 +189,17 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     checkAppState();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setIsLoadingAuth(true);
-      
-      if (session && session.user) {
-        const userEmail = session.user.email;
-        
-        if (isEmailAllowed(userEmail)) {
-          setIsAuthenticated(true);
-          const profile = buildAdminProfile(session.user);
-          setUser(profile);
-          setMyTechnician(profile);
-          setAuthError(null);
-          console.log('✅ Доступ дозволено для:', userEmail);
-        } else {
-          console.log('❌ Доступ заборонено для:', userEmail);
-          setIsAuthenticated(false);
-          setUser(null);
-          setMyTechnician(null);
-          setAuthError({
-            type: 'user_not_registered',
-            message: 'Ваш email не має доступу до цього додатку'
-          });
-          await supabase.auth.signOut();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Виклики Supabase всередині цього колбеку можуть зависнути — відкладаємо
+      setTimeout(async () => {
+        setIsLoadingAuth(true);
+        try {
+          await applySession(session);
+        } finally {
+          setIsLoadingAuth(false);
+          setAuthChecked(true);
         }
-      } else {
-        setUser(null);
-        setMyTechnician(null);
-        setIsAuthenticated(false);
-      }
-      setIsLoadingAuth(false);
-      setAuthChecked(true);
+      }, 0);
     });
 
     return () => {
