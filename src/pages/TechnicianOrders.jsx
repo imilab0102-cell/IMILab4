@@ -11,9 +11,10 @@ import StatusBadge from '@/components/StatusBadge';
 import { ORDER_STATUSES } from '@/lib/constants';
 import { withDefaults } from '@/lib/technicianPermissions';
 import { Textarea } from '@/components/ui/textarea';
+import { NewOrderDialog, NewExternalDialog, AdjustmentForm } from '@/components/technicians/TechCabinetDialogs';
 import { format, getMonth, getYear, parseISO, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { uk } from 'date-fns/locale';
-import { Search, Calendar, UserRound, Building2, FileText, LogOut, TrendingUp, Loader2, Paperclip, Wallet, ListChecks } from 'lucide-react';
+import { Search, Calendar, UserRound, Building2, FileText, LogOut, TrendingUp, Loader2, Paperclip, Wallet, ListChecks, FlaskConical, Plus, Trash2 } from 'lucide-react';
 
 // Технік бачить лише свої наряди і свій заробіток.
 // Ціни для клініки, суми нарядів, оплати та фінанси лабораторії сюди не потрапляють:
@@ -195,6 +196,9 @@ export default function TechnicianOrders() {
   const isTechnician = user?.role === 'technician';
   const perms = withDefaults(user?.permissions);
   const [scope, setScope] = useState('mine');
+  const [newOrderOpen, setNewOrderOpen] = useState(false);
+  const [newExternalOpen, setNewExternalOpen] = useState(false);
+  const qcMain = useQueryClient();
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [statusFilter, setStatusFilter] = useState('active');
   const [search, setSearch] = useState('');
@@ -227,7 +231,7 @@ export default function TechnicianOrders() {
 
   const { data: payments = [] } = useQuery({
     queryKey: ['my-salary-payments'],
-    enabled: isTechnician && activeTab === 'money',
+    enabled: isTechnician && activeTab === 'money' && perms.see_earnings,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_my_salary_payments');
       if (error) throw error;
@@ -237,7 +241,7 @@ export default function TechnicianOrders() {
 
   const { data: adjustments = [] } = useQuery({
     queryKey: ['my-adjustments'],
-    enabled: isTechnician && activeTab === 'money',
+    enabled: isTechnician && activeTab === 'money' && perms.see_earnings,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_my_adjustments');
       if (error) throw error;
@@ -245,20 +249,71 @@ export default function TechnicianOrders() {
     },
   });
 
+  const { data: externalOrders = [] } = useQuery({
+    queryKey: ['my-external'],
+    enabled: isTechnician && (activeTab === 'money' || activeTab === 'external'),
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_my_external_orders');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const deleteAdjustment = useMutation({
+    mutationFn: async (id) => {
+      const { error } = await supabase.rpc('delete_my_adjustment', { p_id: id });
+      if (error) throw error;
+    },
+    onSuccess: () => qcMain.invalidateQueries({ queryKey: ['my-adjustments'] }),
+    onError: (e) => alert(`Не вдалося видалити: ${e.message}`),
+  });
+
+  // Як у звіті власника: позиції нарядів за датою позиції, зовнішні лаби за датою,
+  // коригування за датою створення. «До виплати» — усе, що ще не виплачено.
   const earnings = useMemo(() => {
     const start = startOfMonth(new Date(parseInt(selectedYear), parseInt(selectedMonth), 1));
     const end = endOfMonth(start);
-    const inPeriod = orders.filter(o => {
-      if (o.is_mine === false) return false;
-      if (!o.creation_date || o.status === 'Скасований') return false;
-      try { return isWithinInterval(parseISO(o.creation_date), { start, end }); } catch { return false; }
-    });
-    return {
-      count: inPeriod.length,
-      total: inPeriod.reduce((s, o) => s + (Number(o.my_pay) || 0), 0),
-      details: inPeriod,
+    const inP = (d) => {
+      if (!d) return false;
+      try { return isWithinInterval(parseISO(String(d).slice(0, 10)), { start, end }); } catch { return false; }
     };
-  }, [orders, selectedMonth, selectedYear]);
+
+    const orderRows = [];
+    let unpaid = 0;
+    orders.forEach(o => {
+      if (o.is_mine === false || o.status === 'Скасований') return;
+      (o.items || []).forEach(it => {
+        const pay = (Number(it.technician_pay) || 0) * (Number(it.quantity) || 1);
+        if (!pay) return;
+        if (!it.is_paid) unpaid += pay;
+        if (inP(it.date || o.creation_date)) orderRows.push({ key: `${o.id}-${orderRows.length}`, label: o.order_number, sub: `${o.patient_name || ''} · ${it.service_name || ''}`, amount: pay });
+      });
+    });
+
+    const extRows = [];
+    externalOrders.forEach(e => {
+      const pay = Number(e.my_pay) || 0;
+      if (!pay) return;
+      unpaid += Math.max(0, pay - (Number(e.paid_amount) || 0));
+      if (inP(e.order_date)) extRows.push({ key: `e${e.id}`, label: e.lab_name || 'Зовн. лаб.', sub: (e.items || []).map(i => i.service_name).join(', '), amount: pay });
+    });
+
+    const adjRows = [];
+    adjustments.forEach(a => {
+      const amt = Number(a.amount) || 0;
+      if (!a.is_paid) unpaid += amt;
+      if (inP(a.created_at)) adjRows.push({ key: `a${a.id}`, label: 'Коригування', sub: a.description, amount: amt });
+    });
+
+    const sum = (rows) => rows.reduce((s, r) => s + r.amount, 0);
+    const ordersSum = sum(orderRows), extSum = sum(extRows), adjSum = sum(adjRows);
+    return {
+      ordersSum, extSum, adjSum,
+      total: ordersSum + extSum + adjSum,
+      unpaid,
+      rows: [...orderRows, ...extRows, ...adjRows],
+    };
+  }, [orders, externalOrders, adjustments, selectedMonth, selectedYear]);
 
   const filteredOrders = useMemo(() => orders.filter(o => {
     if (scope === 'mine' && o.is_mine === false) return false;
@@ -324,11 +379,15 @@ export default function TechnicianOrders() {
       <div className="flex gap-1 border-b overflow-x-auto">
         {tabBtn('orders', 'Мої наряди', FileText)}
         {perms.see_earnings && tabBtn('money', 'Заробіток', Wallet)}
+        {(perms.add_external || externalOrders.length > 0) && tabBtn('external', 'Зовнішні лаби', FlaskConical)}
         {perms.see_services && tabBtn('services', 'Мої послуги', ListChecks)}
       </div>
 
       {activeTab === 'orders' && (
         <div className="space-y-3">
+          {perms.create_orders && (
+            <Button className="w-full gap-2" onClick={() => setNewOrderOpen(true)}><Plus className="w-4 h-4" /> Новий наряд</Button>
+          )}
           {perms.see_all_orders && (
             <div className="flex gap-2">
               <Button size="sm" variant={scope === 'mine' ? 'default' : 'outline'} onClick={() => setScope('mine')}>Мої</Button>
@@ -414,39 +473,51 @@ export default function TechnicianOrders() {
             <CardContent className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-white/80 dark:bg-card rounded-lg p-3">
-                  <p className="text-xs text-muted-foreground mb-1">Нарядів</p>
-                  <p className="text-2xl font-bold text-primary">{earnings.count}</p>
-                </div>
-                <div className="bg-white/80 dark:bg-card rounded-lg p-3">
-                  <p className="text-xs text-muted-foreground mb-1">Заробіток</p>
+                  <p className="text-xs text-muted-foreground mb-1">Разом за місяць</p>
                   <p className="text-2xl font-bold text-emerald-700">{money(earnings.total)}</p>
                 </div>
+                <div className="bg-white/80 dark:bg-card rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground mb-1">До виплати (усього)</p>
+                  <p className="text-2xl font-bold text-primary">{money(earnings.unpaid)}</p>
+                </div>
               </div>
-              {earnings.details.length > 0 && (
-                <div className="pt-2 border-t space-y-1 max-h-48 overflow-y-auto">
-                  {earnings.details.map(o => (
-                    <div key={o.id} className="flex justify-between gap-2 text-xs">
-                      <span className="font-mono text-muted-foreground">{o.order_number}</span>
-                      <span className="flex-1 truncate">{o.patient_name}</span>
-                      <span className="font-semibold">{money(o.my_pay)}</span>
+              <div className="text-sm space-y-1">
+                <div className="flex justify-between"><span className="text-muted-foreground">Наряди</span><span>{money(earnings.ordersSum)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Зовнішні лабораторії</span><span>{money(earnings.extSum)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Коригування</span><span className={earnings.adjSum < 0 ? 'text-red-600' : ''}>{money(earnings.adjSum)}</span></div>
+              </div>
+              {earnings.rows.length > 0 && (
+                <div className="pt-2 border-t space-y-1 max-h-56 overflow-y-auto">
+                  {earnings.rows.map(r => (
+                    <div key={r.key} className="flex justify-between gap-2 text-xs">
+                      <span className="font-mono text-muted-foreground shrink-0">{r.label}</span>
+                      <span className="flex-1 truncate">{r.sub}</span>
+                      <span className={`font-semibold ${r.amount < 0 ? 'text-red-600' : ''}`}>{money(r.amount)}</span>
                     </div>
                   ))}
                 </div>
               )}
-              <p className="text-xs text-muted-foreground pt-2 border-t">Наряди за датою створення, крім скасованих.</p>
+              <p className="text-xs text-muted-foreground pt-2 border-t">Наряди — за датою роботи, без скасованих; зовнішні лаби — за датою замовлення.</p>
             </CardContent>
           </Card>
 
-          {unpaidAdjustments.length > 0 && (
+          {(perms.adjust_salary || unpaidAdjustments.length > 0) && (
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm">Коригування (ще не виплачені)</CardTitle></CardHeader>
-              <CardContent className="space-y-1 text-sm">
+              <CardContent className="space-y-2 text-sm">
+                {unpaidAdjustments.length === 0 && <p className="text-xs text-muted-foreground">Немає.</p>}
                 {unpaidAdjustments.map(a => (
-                  <div key={a.id} className="flex justify-between gap-2">
+                  <div key={a.id} className="flex items-center justify-between gap-2">
                     <span className="flex-1">{a.description || 'Коригування'}</span>
                     <span className={Number(a.amount) < 0 ? 'text-red-600' : 'text-emerald-700'}>{money(a.amount)}</span>
+                    {perms.adjust_salary && String(a.description || '').startsWith('[від техніка]') && (
+                      <button onClick={() => { if (window.confirm('Видалити коригування?')) deleteAdjustment.mutate(a.id); }}>
+                        <Trash2 className="w-4 h-4 text-muted-foreground" />
+                      </button>
+                    )}
                   </div>
                 ))}
+                {perms.adjust_salary && <div className="pt-2 border-t"><AdjustmentForm /></div>}
               </CardContent>
             </Card>
           )}
@@ -465,6 +536,39 @@ export default function TechnicianOrders() {
               ))}
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {activeTab === 'external' && (
+        <div className="space-y-3">
+          {perms.add_external && (
+            <Button className="w-full gap-2" onClick={() => setNewExternalOpen(true)}><Plus className="w-4 h-4" /> Додати роботу</Button>
+          )}
+          {externalOrders.length === 0 ? (
+            <p className="text-center text-sm text-muted-foreground py-8">Робіт у зовнішніх лабораторіях ще немає.</p>
+          ) : externalOrders.map(e => (
+            <Card key={e.id}>
+              <CardContent className="p-3 space-y-1">
+                <div className="flex justify-between gap-2">
+                  <span className="font-semibold">{e.lab_name}</span>
+                  <span className="text-xs text-muted-foreground">{fmt(e.order_date)} · {e.status}</span>
+                </div>
+                {(e.items || []).map((i, k) => (
+                  <div key={k} className="flex justify-between text-xs">
+                    <span>{i.service_name}{i.quantity > 1 ? ` × ${i.quantity}` : ''}</span>
+                    {Number(i.technician_pay) > 0 && <span>{money(i.technician_pay * (i.quantity || 1))}</span>}
+                  </div>
+                ))}
+                {Number(e.my_pay) > 0 && (
+                  <div className="flex justify-between text-xs pt-1 border-t">
+                    <span className="text-muted-foreground">Виплачено {money(e.paid_amount)}</span>
+                    <b className="text-emerald-700">{money(e.my_pay)}</b>
+                  </div>
+                )}
+                {e.notes && <p className="text-xs text-muted-foreground whitespace-pre-wrap">{e.notes}</p>}
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
 
@@ -490,6 +594,8 @@ export default function TechnicianOrders() {
         </Card>
       )}
 
+      {newOrderOpen && <NewOrderDialog onClose={() => setNewOrderOpen(false)} />}
+      {newExternalOpen && <NewExternalDialog onClose={() => setNewExternalOpen(false)} />}
       {selectedOrder && <OrderDialog order={selectedOrder} perms={perms} onClose={() => setSelectedOrder(null)} />}
     </div>
   );
