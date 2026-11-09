@@ -11,7 +11,8 @@ import StatusBadge from '@/components/StatusBadge';
 import { ORDER_STATUSES } from '@/lib/constants';
 import { withDefaults } from '@/lib/technicianPermissions';
 import { Textarea } from '@/components/ui/textarea';
-import { NewOrderDialog, NewExternalDialog, AdjustmentForm } from '@/components/technicians/TechCabinetDialogs';
+import { NewOrderDialog, AdjustmentForm } from '@/components/technicians/TechCabinetDialogs';
+import ExternalLab from '@/pages/ExternalLab';
 import { format, getMonth, getYear, parseISO, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { Search, Calendar, UserRound, Building2, FileText, LogOut, TrendingUp, Loader2, Paperclip, Wallet, ListChecks, FlaskConical, Plus, Trash2 } from 'lucide-react';
@@ -197,7 +198,6 @@ export default function TechnicianOrders() {
   const perms = withDefaults(user?.permissions);
   const [scope, setScope] = useState('mine');
   const [newOrderOpen, setNewOrderOpen] = useState(false);
-  const [newExternalOpen, setNewExternalOpen] = useState(false);
   const qcMain = useQueryClient();
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [statusFilter, setStatusFilter] = useState('active');
@@ -379,7 +379,7 @@ export default function TechnicianOrders() {
       <div className="flex gap-1 border-b overflow-x-auto">
         {tabBtn('orders', 'Мої наряди', FileText)}
         {perms.see_earnings && tabBtn('money', 'Заробіток', Wallet)}
-        {(perms.add_external || externalOrders.length > 0) && tabBtn('external', 'Зовнішні лаби', FlaskConical)}
+        {perms.add_external && tabBtn('external', 'Зовнішні лаби', FlaskConical)}
         {perms.see_services && tabBtn('services', 'Мої послуги', ListChecks)}
       </div>
 
@@ -539,38 +539,7 @@ export default function TechnicianOrders() {
         </div>
       )}
 
-      {activeTab === 'external' && (
-        <div className="space-y-3">
-          {perms.add_external && (
-            <Button className="w-full gap-2" onClick={() => setNewExternalOpen(true)}><Plus className="w-4 h-4" /> Додати роботу</Button>
-          )}
-          {externalOrders.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground py-8">Робіт у зовнішніх лабораторіях ще немає.</p>
-          ) : externalOrders.map(e => (
-            <Card key={e.id}>
-              <CardContent className="p-3 space-y-1">
-                <div className="flex justify-between gap-2">
-                  <span className="font-semibold">{e.lab_name}</span>
-                  <span className="text-xs text-muted-foreground">{fmt(e.order_date)} · {e.status}</span>
-                </div>
-                {(e.items || []).map((i, k) => (
-                  <div key={k} className="flex justify-between text-xs">
-                    <span>{i.service_name}{i.quantity > 1 ? ` × ${i.quantity}` : ''}</span>
-                    {Number(i.technician_pay) > 0 && <span>{money(i.technician_pay * (i.quantity || 1))}</span>}
-                  </div>
-                ))}
-                {Number(e.my_pay) > 0 && (
-                  <div className="flex justify-between text-xs pt-1 border-t">
-                    <span className="text-muted-foreground">Виплачено {money(e.paid_amount)}</span>
-                    <b className="text-emerald-700">{money(e.my_pay)}</b>
-                  </div>
-                )}
-                {e.notes && <p className="text-xs text-muted-foreground whitespace-pre-wrap">{e.notes}</p>}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+      {activeTab === 'external' && perms.add_external && <ExternalLab />}
 
       {activeTab === 'services' && (
         <Card>
@@ -595,7 +564,6 @@ export default function TechnicianOrders() {
       )}
 
       {newOrderOpen && <NewOrderDialog onClose={() => setNewOrderOpen(false)} />}
-      {newExternalOpen && <NewExternalDialog onClose={() => setNewExternalOpen(false)} />}
       {selectedOrder && <OrderDialog order={selectedOrder} perms={perms} onClose={() => setSelectedOrder(null)} />}
     </div>
   );
