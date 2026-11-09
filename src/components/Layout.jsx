@@ -3,7 +3,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { useState } from 'react';
 import {
   LayoutDashboard, FileText, Building2, UserRound, Wrench,
-  ClipboardList, Menu, X, LogOut, ChevronDown, Smartphone, CalendarDays, BarChart2, FlaskConical, DollarSign, Settings, Receipt
+  ClipboardList, Menu, X, LogOut, ChevronDown, Smartphone, CalendarDays, BarChart2, FlaskConical, DollarSign, Settings, Receipt, Inbox
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
@@ -14,6 +14,7 @@ import {
 const adminLinks = [
   { to: '/', label: 'Дашборд', icon: LayoutDashboard },
   { to: '/orders', label: 'Наряди', icon: FileText },
+  { to: '/order-requests', label: 'Заявки лікарів', icon: Inbox },
   { to: '/clinics', label: 'Клініки', icon: Building2 },
   { to: '/doctors', label: 'Лікарі', icon: UserRound },
   { to: '/technicians', label: 'Техніки', icon: Wrench },
