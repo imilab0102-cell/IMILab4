@@ -286,10 +286,21 @@ export default function OrderRequests() {
     try {
       const d = r.details || {};
       let doctorId = 'none';
+      let clinicId = r.clinic_id || 'none';
       try {
-        const { data: docs } = await supabase.from('doctor').select('id, full_name');
-        const match = (docs || []).find(doc => (doc.full_name || '').trim().toLowerCase() === (r.doctor_name || '').trim().toLowerCase());
-        if (match) doctorId = String(match.id);
+        const { data: docs } = await supabase.from('doctor').select('id, full_name, clinic_id');
+        const norm = (v) => (v || '').trim().toLowerCase().replace(/\s+/g, ' ');
+        const name = norm(r.doctor_name);
+        const list = docs || [];
+        const sameClinic = list.filter(doc => !r.clinic_id || String(doc.clinic_id) === String(r.clinic_id));
+        const match =
+          sameClinic.find(doc => norm(doc.full_name) === name) ||
+          list.find(doc => norm(doc.full_name) === name) ||
+          sameClinic.find(doc => name && (norm(doc.full_name).includes(name) || name.includes(norm(doc.full_name).split(' ')[0] || '—')));
+        if (match) {
+          doctorId = String(match.id);
+          if (clinicId === 'none' && match.clinic_id) clinicId = String(match.clinic_id);
+        }
       } catch { /* не критично */ }
 
       let fileUrls = [];
@@ -301,7 +312,7 @@ export default function OrderRequests() {
       const summary = summarizeRequest(r);
       const prefill = {
         _request_id: r.id,
-        clinic_id: r.clinic_id || 'none',
+        clinic_id: clinicId,
         doctor_id: doctorId,
         patient_name: r.patient_name || '',
         patient_age: r.patient_age ?? '',

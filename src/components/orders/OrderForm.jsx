@@ -120,14 +120,15 @@ export default function OrderForm({ order, onSubmit, onCancel, isSubmitting }) {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    if (order?.id) {
+    // _request_id — наряд, заповнений із заявки лікаря (без id, але з даними)
+    if (order?.id || order?._request_id) {
       setForm(buildFormFromOrder(order));
       setTimeout(() => setIsReady(true), 500);
     } else {
       setForm(defaultForm);
       setIsReady(true);
     }
-  }, [order?.id]);
+  }, [order?.id, order?._request_id]);
 
   const [selectedTypeColor, setSelectedTypeColor] = useState(null);
   const [selectedPriceItemId, setSelectedPriceItemId] = useState('none');
