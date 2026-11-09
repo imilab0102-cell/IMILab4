@@ -34,6 +34,14 @@ const ERRORS = {
 
 const storageKey = (token) => `naryad_doctor_${token}`;
 
+const getToothImage = (num) => {
+  try {
+    return new URL(`../assets/teeth/${num}.png`, import.meta.url).href;
+  } catch {
+    return null;
+  }
+};
+
 function Section({ title, children }) {
   return (
     <section className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3">
@@ -87,24 +95,50 @@ function TeethPicker({ value, onChange }) {
     onChange(next);
   };
 
-  const renderRow = (teeth) => (
-    <div className="grid gap-[2px]" style={{ gridTemplateColumns: 'repeat(16, minmax(0, 1fr))' }}>
-      {teeth.map((n, i) => {
+  const renderHalf = (teeth) => (
+    <div className="flex flex-1 min-w-0 gap-[2px]">
+      {teeth.map(n => {
         const m = markByCode(value[String(n)]);
+        const img = getToothImage(n);
         return (
           <button
             type="button"
             key={n}
             onClick={() => tap(n)}
-            className={`flex flex-col items-center justify-center rounded-md border h-11 text-[10px] leading-none ${
-              m ? m.color : 'bg-white border-slate-300 text-slate-500'
-            } ${i === 7 ? 'mr-1' : ''}`}
+            className={`flex-1 min-w-0 flex flex-col items-center rounded-md border py-1 transition-colors ${
+              m ? 'bg-slate-100 border-slate-300' : 'bg-white border-transparent'
+            }`}
           >
-            <span className="font-semibold">{n}</span>
-            <span className="text-xs font-bold mt-0.5 h-3">{m ? m.code : ''}</span>
+            <span className={`text-[9px] font-black leading-none ${m ? 'text-slate-900' : 'text-slate-400'}`}>{n}</span>
+            <span className="relative w-full aspect-square mt-0.5 flex items-center justify-center">
+              {img && (
+                <img src={img} alt={String(n)} className={`w-full h-full object-contain ${m ? 'opacity-0' : ''}`} draggable={false} />
+              )}
+              {m && img && (
+                <span
+                  className="absolute inset-0"
+                  style={{
+                    background: m.hex,
+                    WebkitMaskImage: `url(${img})`, maskImage: `url(${img})`,
+                    WebkitMaskSize: 'contain', maskSize: 'contain',
+                    WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat',
+                    WebkitMaskPosition: 'center', maskPosition: 'center',
+                  }}
+                />
+              )}
+            </span>
+            <span className="text-[10px] font-black leading-none h-3 mt-0.5" style={{ color: m?.hex }}>{m ? m.code : ''}</span>
           </button>
         );
       })}
+    </div>
+  );
+
+  const renderRow = (teeth) => (
+    <div className="flex items-center">
+      {renderHalf(teeth.slice(0, 8))}
+      <div className="w-[3px] self-stretch bg-slate-300 mx-1 rounded-full opacity-60" />
+      {renderHalf(teeth.slice(8))}
     </div>
   );
 
@@ -123,9 +157,8 @@ function TeethPicker({ value, onChange }) {
         ))}
       </div>
       <p className="text-xs text-slate-500">Оберіть позначку, потім натисніть на зуби. Повторне натискання знімає позначку.</p>
-      <div className="space-y-1 overflow-x-auto">
+      <div className="select-none p-1.5 bg-[#f0f2f5] rounded-xl border border-slate-200 shadow-inner space-y-2">
         {renderRow(UPPER_TEETH)}
-        <div className="border-t border-dashed border-slate-300" />
         {renderRow(LOWER_TEETH)}
       </div>
     </div>
