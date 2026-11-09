@@ -153,7 +153,7 @@ function RequestDetail({ request, onClose, onCreateOrder, onReject, onDelete, bu
 }
 
 // ─── Посилання / QR ──────────────────────────────────────────────────────────
-function LinkCard({ link, onToggle }) {
+function LinkCard({ link, onToggle, onDelete }) {
   const wrap = useRef(null);
   const url = buildRequestLink(link.token);
   const [copied, setCopied] = useState(false);
@@ -190,6 +190,9 @@ function LinkCard({ link, onToggle }) {
           <Button size="sm" variant="outline" className="gap-1.5" onClick={download}><Download className="w-3.5 h-3.5" />QR (PNG)</Button>
           <Button size="sm" variant="ghost" className="gap-1.5" onClick={() => onToggle(link)}>
             <Power className="w-3.5 h-3.5" />{link.active ? 'Вимкнути' : 'Увімкнути'}
+          </Button>
+          <Button size="sm" variant="ghost" className="gap-1.5 text-destructive" onClick={() => onDelete(link)}>
+            <Trash2 className="w-3.5 h-3.5" />Видалити
           </Button>
         </div>
       </div>
@@ -274,6 +277,15 @@ export default function OrderRequests() {
   const toggleLink = useMutation({
     mutationFn: async (link) => {
       const { error } = await supabase.from('order_request_link').update({ active: !link.active }).eq('id', link.id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['order-request-links'] }),
+    onError: (e) => alert(`Помилка: ${e.message}`),
+  });
+
+  const deleteLink = useMutation({
+    mutationFn: async (link) => {
+      const { error } = await supabase.from('order_request_link').delete().eq('id', link.id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['order-request-links'] }),
@@ -419,7 +431,18 @@ export default function OrderRequests() {
             <div className="py-10 flex justify-center"><Loader2 className="w-6 h-6 animate-spin" /></div>
           ) : (
             <div className="grid gap-3 md:grid-cols-2">
-              {links.map(l => <LinkCard key={l.id} link={l} onToggle={(link) => toggleLink.mutate(link)} />)}
+              {links.map(l => (
+                <LinkCard
+                  key={l.id}
+                  link={l}
+                  onToggle={(link) => toggleLink.mutate(link)}
+                  onDelete={(link) => {
+                    if (window.confirm(`Видалити QR-код «${link.clinic_name}»? Надрукований QR перестане працювати. Уже надіслані заявки залишаться.`)) {
+                      deleteLink.mutate(link);
+                    }
+                  }}
+                />
+              ))}
             </div>
           )}
         </TabsContent>
