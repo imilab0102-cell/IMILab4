@@ -13,7 +13,7 @@ import TechnicianSalaryCard from '@/components/technicians/TechnicianSalaryCard'
 
 const SPECIALIZATIONS = ['Кераміст', 'Знімник', 'Ортодонт', 'CAD/CAM', 'Універсал'];
 
-const emptyForm = { full_name: '', specialization: '', phone: '', is_active: true };
+const emptyForm = { full_name: '', specialization: '', phone: '', email: '', is_active: true };
 
 export default function Technicians() {
   const [open, setOpen] = useState(false);
@@ -49,6 +49,7 @@ export default function Technicians() {
         full_name: formData.full_name,
         specialization: formData.specialization || null,
         phone: formData.phone || null,
+        email: (formData.email || '').trim().toLowerCase() || null,
         is_active: formData.is_active ?? true
       };
 
@@ -117,6 +118,7 @@ export default function Technicians() {
       full_name: t.full_name,
       specialization: t.specialization || '',
       phone: t.phone || '',
+      email: t.email || '',
       is_active: t.is_active ?? true
     });
     setOpen(true);
@@ -195,6 +197,19 @@ export default function Technicians() {
                 onChange={e => setForm({ ...form, phone: e.target.value })} 
                 placeholder="+380..." 
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Email для входу (Google)</Label>
+              <Input
+                type="email"
+                value={form.email}
+                onChange={e => setForm({ ...form, email: e.target.value })}
+                placeholder="tech@gmail.com"
+              />
+              <p className="text-xs text-muted-foreground">
+                Технік входить у додаток через Google з цією поштою і бачить лише свої наряди без цін і фінансів лабораторії.
+              </p>
             </div>
 
             {/* Блок активації/деактивації техніка відповідно до булевого поля is_active у схемі */}

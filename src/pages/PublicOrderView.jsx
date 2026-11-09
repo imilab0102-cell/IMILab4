@@ -25,12 +25,10 @@ export default function PublicOrderView() {
   const { data: order, isLoading: orderLoading, error: orderError } = useQuery({
     queryKey: ['public-order', id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('WorkOrder')
-        .select('*')
-        .eq('id', id)
-        .single();
+      // Публічний чек: дані без собівартості та прибутку лабораторії
+      const { data, error } = await supabase.rpc('get_public_order', { p_id: String(id) });
       if (error) throw error;
+      if (!data) throw new Error('not_found');
       return data;
     },
   });

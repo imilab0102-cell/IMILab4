@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Route, Routes, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { registerPlugin } from '@capacitor/core';
 import { NotificationService } from '@/lib/notificationService';
 const CapApp = registerPlugin('App');
@@ -36,6 +36,18 @@ import PublicOrderView from '@/pages/PublicOrderView';
 import PublicOrderRequest from '@/pages/PublicOrderRequest';
 import OrderRequests from '@/pages/OrderRequests';
 
+// Лише для власника; технік повертається у свій кабінет
+const AdminOnly = () => {
+  const { user } = useAuth();
+  return user?.role === 'admin' ? <Outlet /> : <Navigate to="/" replace />;
+};
+
+// Головна: власнику — дашборд, техніку — його кабінет
+const HomeRoute = () => {
+  const { user } = useAuth();
+  return user?.role === 'admin' ? <Dashboard /> : <TechnicianOrders />;
+};
+
 const AppRoutes = () => {
   return (
     <Routes>
@@ -49,23 +61,25 @@ const AppRoutes = () => {
 
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
         <Route element={<Layout />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/orders" element={<Orders />} />
-          <Route path="/order-requests" element={<OrderRequests />} />
-          <Route path="/clinics" element={<Clinics />} />
-          <Route path="/doctors" element={<Doctors />} />
-          <Route path="/technicians" element={<Technicians />} />
-          <Route path="/calendar" element={<CalendarView />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/external-lab" element={<ExternalLab />} />
-          <Route path="/pricelist" element={<PriceList />} />
-          <Route path="/expenses" element={<ExpenseSettings />} />
-          <Route path="/invoice-settings" element={<InvoiceTemplateSettings />} />
-          <Route path="/receipt-settings" element={<ReceiptTemplateSettings />} /> {/* ← ОДИН РАЗ */}
-          <Route path="/order-settings" element={<OrderSettings />} />
+          <Route path="/" element={<HomeRoute />} />
           <Route path="/install" element={<InstallApp />} />
           <Route path="/my-orders" element={<TechnicianOrders />} />
-          <Route path="/technicians/salary-report" element={<TechnicianSalaryReport />} />
+          <Route element={<AdminOnly />}>
+            <Route path="/orders" element={<Orders />} />
+            <Route path="/order-requests" element={<OrderRequests />} />
+            <Route path="/clinics" element={<Clinics />} />
+            <Route path="/doctors" element={<Doctors />} />
+            <Route path="/technicians" element={<Technicians />} />
+            <Route path="/calendar" element={<CalendarView />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/external-lab" element={<ExternalLab />} />
+            <Route path="/pricelist" element={<PriceList />} />
+            <Route path="/expenses" element={<ExpenseSettings />} />
+            <Route path="/invoice-settings" element={<InvoiceTemplateSettings />} />
+            <Route path="/receipt-settings" element={<ReceiptTemplateSettings />} /> {/* ← ОДИН РАЗ */}
+            <Route path="/order-settings" element={<OrderSettings />} />
+            <Route path="/technicians/salary-report" element={<TechnicianSalaryReport />} />
+          </Route>
         </Route>
       </Route>
       
