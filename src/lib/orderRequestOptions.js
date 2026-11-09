@@ -41,7 +41,8 @@ export const MATERIALS = [
   'Титан',
   'PMMA',
   'Композит',
-  'Акрил / нейлон',
+  'Акрил',
+  'Нейлон',
 ];
 
 export const SHADE_SYSTEMS = ['VITA Classical', 'VITA 3D-Master'];
