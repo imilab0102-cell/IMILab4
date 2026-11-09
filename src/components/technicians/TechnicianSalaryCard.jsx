@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Pencil, Trash2, Phone, UserCheck, UserX, Wallet, Wrench, Plus, Loader2, Coins } from 'lucide-react';
+import { Pencil, Trash2, Phone, UserCheck, UserX, Wallet, Wrench, Plus, Loader2, Coins, KeyRound } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
 // Уніфікований список категорій — має співпадати з TechnicianServicesTab.jsx
@@ -158,6 +158,10 @@ export default function TechnicianSalaryCard({ technician, onEdit, onDelete }) {
             <div className="flex items-center gap-2 text-gray-600">
               <Phone className="w-4 h-4 text-gray-400 shrink-0" />
               <span>{technician.phone || 'Телефон не вказано'}</span>
+            </div>
+            <div className="flex items-center gap-2 text-gray-600">
+              <KeyRound className="w-4 h-4 text-gray-400 shrink-0" />
+              <span className="truncate">{technician.email ? `Доступ: ${technician.email}` : 'Без доступу до додатку'}</span>
             </div>
           </div>
 
