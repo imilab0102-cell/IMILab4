@@ -8,12 +8,12 @@ export const UPPER_TEETH = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 
 export const LOWER_TEETH = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
 
 export const TOOTH_MARKS = [
-  { code: 'К', label: 'Коронка', color: 'bg-blue-600 text-white border-blue-600' },
-  { code: 'П', label: 'Проміжна частина', color: 'bg-violet-600 text-white border-violet-600' },
-  { code: 'В', label: 'Вінір', color: 'bg-pink-600 text-white border-pink-600' },
-  { code: 'І', label: 'Імплант', color: 'bg-emerald-600 text-white border-emerald-600' },
-  { code: 'Т', label: 'Тимчасова', color: 'bg-amber-500 text-white border-amber-500' },
-  { code: 'Х', label: 'Відсутній', color: 'bg-slate-500 text-white border-slate-500' },
+  { code: 'К', label: 'Коронка', hex: '#2563eb', color: 'bg-blue-600 text-white border-blue-600' },
+  { code: 'П', label: 'Проміжна частина', hex: '#7c3aed', color: 'bg-violet-600 text-white border-violet-600' },
+  { code: 'В', label: 'Вінір', hex: '#db2777', color: 'bg-pink-600 text-white border-pink-600' },
+  { code: 'І', label: 'Імплант', hex: '#059669', color: 'bg-emerald-600 text-white border-emerald-600' },
+  { code: 'Т', label: 'Тимчасова', hex: '#f59e0b', color: 'bg-amber-500 text-white border-amber-500' },
+  { code: 'Х', label: 'Відсутній', hex: '#64748b', color: 'bg-slate-500 text-white border-slate-500' },
 ];
 
 export const markByCode = (code) => TOOTH_MARKS.find(m => m.code === code);
