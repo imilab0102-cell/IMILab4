@@ -170,7 +170,25 @@ export default function Reports() {
     });
   }, [orders, filterMode, dateFrom, dateTo, selectedMonth, selectedYear, selectedClinic, selectedDoctor, selectedPaymentStatus]);
 
-  const activeOrders = useMemo(() => filteredOrders.filter(o => o && o.status && String(o.status).toLowerCase().trim() !== 'скасовано'), [filteredOrders]);
+  // Усі наряди за фільтрами (показуються в списку з галочками)
+  const candidateOrders = useMemo(() => filteredOrders.filter(o => o && o.status && String(o.status).toLowerCase().trim() !== 'скасовано'), [filteredOrders]);
+
+  // Наряди, які користувач вручну виключив зі звіту
+  const [excludedIds, setExcludedIds] = useState(() => new Set());
+  useEffect(() => {
+    setExcludedIds(new Set());
+  }, [filterMode, dateFrom, dateTo, selectedMonth, selectedYear, selectedClinic, selectedDoctor, selectedPaymentStatus]);
+  const toggleExcluded = (id) => setExcludedIds(prev => {
+    const next = new Set(prev);
+    const k = String(id);
+    if (next.has(k)) next.delete(k); else next.add(k);
+    return next;
+  });
+  const allIncluded = excludedIds.size === 0;
+  const toggleAll = () => setExcludedIds(allIncluded ? new Set(candidateOrders.map(o => String(o.id))) : new Set());
+
+  // Наряди, що входять у звіт (суми, експорт, історія, оплата)
+  const activeOrders = useMemo(() => candidateOrders.filter(o => !excludedIds.has(String(o.id))), [candidateOrders, excludedIds]);
 
   const financeTotals = useMemo(() => {
     const totals = { work: { UAH: 0, USD: 0, EUR: 0 }, paid: { UAH: 0, USD: 0, EUR: 0 }, debt: { UAH: 0, USD: 0, EUR: 0 } };
@@ -646,15 +664,23 @@ export default function Reports() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="bg-white border rounded-3xl shadow-lg overflow-hidden">
         <TabsList className="bg-slate-50 w-full justify-start border-b px-6 h-14 gap-4"><TabsTrigger value="table" className="text-xs font-black uppercase">Список</TabsTrigger><TabsTrigger value="export" className="text-xs font-black uppercase">Експорт</TabsTrigger><TabsTrigger value="history" className="text-xs font-black uppercase">Історія звітів{reportHistory.filter(r => r.status !== 'Оплачено').length ? ` (${reportHistory.filter(r => r.status !== 'Оплачено').length})` : ''}</TabsTrigger></TabsList>
         <TabsContent value="table" className="p-0">
-          <div className="overflow-x-auto"><table className="w-full text-xs text-left"><thead className="bg-slate-50 font-black text-slate-400 uppercase border-b"><tr><th className="p-5">Дата</th><th className="p-5">Пацієнт</th><th className="p-5 text-right">Сума (${reportCurrency})</th><th className="p-5 text-center">Статус</th></tr></thead><tbody className="divide-y divide-slate-100">
-            {activeOrders.map(o => (
-              <tr key={o.id} className="hover:bg-blue-50/40">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 border-b bg-blue-50/40 text-xs">
+            <span>У звіті <b>{activeOrders.length}</b> з {candidateOrders.length} нарядів. Зніміть галочку, щоб виключити наряд зі звіту.</span>
+            {!allIncluded && <button className="font-bold text-blue-700 underline" onClick={() => setExcludedIds(new Set())}>Повернути всі</button>}
+          </div>
+          <div className="overflow-x-auto"><table className="w-full text-xs text-left"><thead className="bg-slate-50 font-black text-slate-400 uppercase border-b"><tr><th className="p-3 pl-5 w-10"><input type="checkbox" className="w-4 h-4 accent-blue-600 cursor-pointer" checked={allIncluded && candidateOrders.length > 0} ref={el => { if (el) el.indeterminate = !allIncluded && excludedIds.size < candidateOrders.length; }} onChange={toggleAll} title="Усі / жодного" /></th><th className="p-5">Дата</th><th className="p-5">Пацієнт</th><th className="p-5 text-right">Сума (${reportCurrency})</th><th className="p-5 text-center">Статус</th></tr></thead><tbody className="divide-y divide-slate-100">
+            {candidateOrders.map(o => {
+              const included = !excludedIds.has(String(o.id));
+              return (
+              <tr key={o.id} className={`hover:bg-blue-50/40 cursor-pointer ${included ? '' : 'opacity-40 bg-slate-50'}`} onClick={() => toggleExcluded(o.id)}>
+                <td className="p-3 pl-5" onClick={e => e.stopPropagation()}><input type="checkbox" className="w-4 h-4 accent-blue-600 cursor-pointer" checked={included} onChange={() => toggleExcluded(o.id)} /></td>
                 <td className="p-5 text-slate-500 font-medium">{o.creation_date}</td>
                 <td className="p-5"><div className="font-bold text-slate-800 text-sm">{o.patient_name}</div><div className="text-[10px] text-slate-400">{o.clinic_name}</div></td>
                 <td className="p-5 text-right font-black text-slate-900 text-sm">{getOrderTotalInCurrency(o, reportCurrency === 'ORIGINAL' ? 'UAH' : reportCurrency).toFixed(0)}</td>
                 <td className="p-5 text-center"><span className={`px-3 py-1 rounded-lg text-[10px] font-black border-2 ${o.payment_status?.includes('Оплачено') ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-rose-50 text-rose-700 border-rose-100'}`}>{o.payment_status || 'Борг'}</span></td>
               </tr>
-            ))}
+              );
+            })}
           </tbody></table></div>
         </TabsContent>
         <TabsContent value="export" className="p-6 md:p-10 text-center space-y-6">
