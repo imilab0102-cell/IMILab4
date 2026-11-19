@@ -245,14 +245,15 @@ export default function Reports() {
     mutationFn: async (orders) => {
       const ids = orders.map(o => o.id).filter(id => id !== undefined && id !== null);
       if (!ids.length) return 0;
-      const { error } = await supabase.from('WorkOrder').update({ payment_status: 'Оплачено' }).in('id', ids);
+      // «Оплачено» + статус «Зданий» (скасовані не змінюються)
+      const { data, error } = await supabase.rpc('mark_orders_paid', { p_ids: ids });
       if (error) throw error;
-      return ids.length;
+      return data || 0;
     },
     onSuccess: (n) => {
       qc.invalidateQueries({ queryKey: ['reports-orders-v200'] });
       qc.invalidateQueries({ queryKey: ['orders'] });
-      alert(`Позначено оплаченими: ${n} нарядів`);
+      alert(`Оплачено і здано: ${n} нарядів`);
     },
     onError: (e) => alert(`Не вдалося оновити: ${e.message}`),
   });
@@ -263,7 +264,7 @@ export default function Reports() {
       ? `${dateFrom} – ${dateTo}`
       : `${MONTHS.find(m => m.value === selectedMonth)?.label || ''} ${selectedYear}`;
     if (window.confirm(
-      `Позначити ОПЛАЧЕНИМИ ${debtOrders.length} нарядів?\n\n${scopeLabel}\nПеріод: ${period}\n\nІнші клініки та лікарі не зміняться.`
+      `Позначити ОПЛАЧЕНИМИ ${debtOrders.length} нарядів?\nСтатус нарядів стане «Зданий».\n\n${scopeLabel}\nПеріод: ${period}\n\nІнші клініки та лікарі не зміняться.`
     )) {
       markPaidMutation.mutate(debtOrders);
     }
@@ -335,7 +336,7 @@ export default function Reports() {
       qc.invalidateQueries({ queryKey: ['report-history'] });
       qc.invalidateQueries({ queryKey: ['reports-orders-v200'] });
       qc.invalidateQueries({ queryKey: ['orders'] });
-      alert(`Звіт оплачено. Змінено статус оплати у ${n || 0} нарядах.`);
+      alert(`Звіт оплачено. Оплачено і здано: ${n || 0} нарядів.`);
     },
     onError: (e) => alert(`Не вдалося: ${e.message}`),
   });
@@ -702,7 +703,7 @@ export default function Reports() {
         <TabsContent value="history" className="p-4 md:p-6 space-y-3">
           <p className="text-xs text-slate-500">
             Звіт потрапляє сюди автоматично, коли ви зберігаєте PDF, фото чи Excel (або кнопкою «Зберегти в історію»).
-            «Позначити оплаченим» ставить «Оплачено» всім нарядам цього звіту.
+            «Позначити оплаченим» ставить усім нарядам звіту «Оплачено» і статус «Зданий».
           </p>
           {historyLoading ? (
             <div className="py-10 flex justify-center"><RefreshCw className="w-6 h-6 animate-spin text-slate-400" /></div>
@@ -743,7 +744,7 @@ export default function Reports() {
                       className="bg-emerald-600 hover:bg-emerald-700 font-black gap-1.5"
                       disabled={markReportPaid.isPending || ids.length === 0}
                       onClick={() => {
-                        if (window.confirm(`Позначити звіт оплаченим?\n\n${[r.clinic_name, r.doctor_name].filter(Boolean).join(' · ')}\n${r.period_label}\n\nУсім ${ids.length} нарядам цього звіту буде поставлено «Оплачено».`)) {
+                        if (window.confirm(`Позначити звіт оплаченим?\n\n${[r.clinic_name, r.doctor_name].filter(Boolean).join(' · ')}\n${r.period_label}\n\nУсім ${ids.length} нарядам цього звіту буде поставлено «Оплачено» і статус «Зданий».`)) {
                           markReportPaid.mutate(r.id);
                         }
                       }}
