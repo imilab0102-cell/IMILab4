@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../api/supabaseClient'; 
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -218,6 +218,56 @@ export default function Reports() {
     }, 0);
     return convertVal(raw, 'UAH', reportCurrency === 'ORIGINAL' ? 'UAH' : reportCurrency);
   }, [activeOrders, reportCurrency, exchangeRates]);
+
+  // ─── Позначити борги оплаченими (лише обрана клініка/лікар і період звіту) ───
+  const qc = useQueryClient();
+  const isPaidStatus = (st) => {
+    const v = String(st || '').toLowerCase();
+    return v.includes('оплачено') || v.includes('paid');
+  };
+  const scopeSelected = selectedClinic !== '_all' || selectedDoctor !== '_all';
+  const scopeLabel = [
+    selectedClinic !== '_all' ? (filterOptions.clinics.find(c => c.id === selectedClinic)?.name || 'клініка') : null,
+    selectedDoctor !== '_all' ? selectedDoctor : null,
+  ].filter(Boolean).join(' · ');
+  const debtOrders = useMemo(() => {
+    if (!scopeSelected) return [];
+    return activeOrders.filter(o => {
+      if (isPaidStatus(o.payment_status)) return false;
+      const cId = o.clinic_id?.toString() || 'none';
+      if (selectedClinic !== '_all' && cId !== selectedClinic) return false;
+      if (selectedDoctor !== '_all' && o.doctor_name !== selectedDoctor) return false;
+      return true;
+    });
+  }, [activeOrders, scopeSelected, selectedClinic, selectedDoctor]);
+
+  const markPaidMutation = useMutation({
+    mutationFn: async (orders) => {
+      const ids = orders.map(o => o.id).filter(id => id !== undefined && id !== null);
+      if (!ids.length) return 0;
+      const { error } = await supabase.from('WorkOrder').update({ payment_status: 'Оплачено' }).in('id', ids);
+      if (error) throw error;
+      return ids.length;
+    },
+    onSuccess: (n) => {
+      qc.invalidateQueries({ queryKey: ['reports-orders-v200'] });
+      qc.invalidateQueries({ queryKey: ['orders'] });
+      alert(`Позначено оплаченими: ${n} нарядів`);
+    },
+    onError: (e) => alert(`Не вдалося оновити: ${e.message}`),
+  });
+
+  const handleMarkDebtsPaid = () => {
+    if (!scopeSelected || !debtOrders.length) return;
+    const period = filterMode === 'period'
+      ? `${dateFrom} – ${dateTo}`
+      : `${MONTHS.find(m => m.value === selectedMonth)?.label || ''} ${selectedYear}`;
+    if (window.confirm(
+      `Позначити ОПЛАЧЕНИМИ ${debtOrders.length} нарядів?\n\n${scopeLabel}\nПеріод: ${period}\n\nІнші клініки та лікарі не зміняться.`
+    )) {
+      markPaidMutation.mutate(debtOrders);
+    }
+  };
 
   const calcResultValue = useMemo(() => convertVal(calcAmount, calcFrom, calcTo), [calcAmount, calcFrom, calcTo, exchangeRates]);
 
@@ -464,6 +514,27 @@ export default function Reports() {
         <Card className="border-l-8 border-l-slate-800 shadow-md"><CardContent className="p-6 flex justify-between items-center"><div><p className="text-[10px] font-black text-slate-400 uppercase">Роботи</p><p className="text-xs font-bold text-slate-500">{activeOrders.length} замовлень</p></div>{renderCur(displayTotals.work, "text-2xl text-slate-900")}</CardContent></Card>
         <Card className="border-l-8 border-l-emerald-500 shadow-md"><CardContent className="p-6 flex justify-between items-center"><p className="text-[10px] font-black text-emerald-600 uppercase">Сплачено</p>{renderCur(displayTotals.paid, "text-2xl text-emerald-600")}</CardContent></Card>
         <Card className="border-l-8 border-l-rose-500 shadow-md"><CardContent className="p-6 flex justify-between items-center"><p className="text-[10px] font-black text-rose-600 uppercase">Борги</p>{renderCur(displayTotals.debt, "text-2xl text-rose-600")}</CardContent></Card>
+      </div>
+
+      <div className="bg-white p-4 rounded-2xl border shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="text-sm">
+          {scopeSelected ? (
+            <span>
+              <b>{scopeLabel}</b>: у звіті {debtOrders.length > 0
+                ? <span className="text-rose-600 font-bold">{debtOrders.length} нарядів з боргом</span>
+                : <span className="text-emerald-600 font-bold">боргів немає</span>}
+            </span>
+          ) : (
+            <span className="text-slate-500">Щоб позначити борги оплаченими, оберіть клініку або лікаря.</span>
+          )}
+        </div>
+        <Button
+          onClick={handleMarkDebtsPaid}
+          disabled={!scopeSelected || debtOrders.length === 0 || markPaidMutation.isPending}
+          className="h-11 font-black rounded-xl bg-emerald-600 hover:bg-emerald-700 gap-2"
+        >
+          {markPaidMutation.isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : '✅'} ПОЗНАЧИТИ БОРГИ ОПЛАЧЕНИМИ
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
