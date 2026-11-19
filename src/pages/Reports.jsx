@@ -10,7 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { 
   Calendar, Building2, UserRound, FileSpreadsheet, FileText, X, 
   TrendingUp, Wallet, AlertCircle, RefreshCw, ArrowLeftRight, 
-  Copy, Printer, Download, FileCheck, Share2, Image as ImageIcon, Coins
+  Copy, Printer, Download, FileCheck, Share2, Image as ImageIcon, Coins, History, CheckCircle2, Trash2, Save
 } from 'lucide-react';
 import { format, getMonth, getYear, parseISO, isWithinInterval, startOfMonth, endOfMonth } from 'date-fns';
 import { uk } from 'date-fns/locale';
@@ -277,7 +277,106 @@ export default function Reports() {
     return <div className="flex flex-col text-right">{act.map(([c, v]) => <span key={c} className={`font-black ${cls}`}>{v.toLocaleString('uk-UA', { maxFractionDigits: 0 })} {c==='UAH'?'₴':c==='USD'?'$':'€'}</span>)}</div>;
   };
 
+  // ─── Історія сформованих звітів ───────────────────────────────────────────
+  const { data: reportHistory = [], isLoading: historyLoading } = useQuery({
+    queryKey: ['report-history'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('report_history').select('*').order('created_at', { ascending: false }).limit(300);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const currentPeriod = () => {
+    if (filterMode === 'period') {
+      return { label: `${dateFrom} – ${dateTo}`, from: dateFrom || null, to: dateTo || null };
+    }
+    const start = startOfMonth(new Date(parseInt(selectedYear), parseInt(selectedMonth), 1));
+    return {
+      label: `${MONTHS.find(m => m.value === selectedMonth)?.label || ''} ${selectedYear}`,
+      from: format(start, 'yyyy-MM-dd'),
+      to: format(endOfMonth(start), 'yyyy-MM-dd'),
+    };
+  };
+
+  const saveReportToHistory = async (fmt, { silent = true } = {}) => {
+    try {
+      const p = currentPeriod();
+      const record = {
+        period_label: p.label,
+        date_from: p.from,
+        date_to: p.to,
+        clinic_id: selectedClinic !== '_all' ? selectedClinic : null,
+        clinic_name: selectedClinic !== '_all' ? (filterOptions.clinics.find(c => c.id === selectedClinic)?.name || null) : 'Всі клініки',
+        doctor_name: selectedDoctor !== '_all' ? selectedDoctor : null,
+        currency: reportCurrency,
+        order_ids: activeOrders.map(o => o.id).filter(id => id !== null && id !== undefined),
+        orders_count: activeOrders.length,
+        totals: displayTotals,
+        format: fmt,
+      };
+      const { error } = await supabase.from('report_history').insert([record]);
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ['report-history'] });
+      if (!silent) alert('Звіт збережено в історію');
+    } catch (e) {
+      console.error('Не вдалося зберегти звіт в історію:', e);
+      if (!silent) alert(`Не вдалося зберегти: ${e.message}`);
+    }
+  };
+
+  const markReportPaid = useMutation({
+    mutationFn: async (id) => {
+      const { data, error } = await supabase.rpc('mark_report_paid', { p_id: id });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (n) => {
+      qc.invalidateQueries({ queryKey: ['report-history'] });
+      qc.invalidateQueries({ queryKey: ['reports-orders-v200'] });
+      qc.invalidateQueries({ queryKey: ['orders'] });
+      alert(`Звіт оплачено. Змінено статус оплати у ${n || 0} нарядах.`);
+    },
+    onError: (e) => alert(`Не вдалося: ${e.message}`),
+  });
+
+  const deleteReport = useMutation({
+    mutationFn: async (id) => {
+      const { error } = await supabase.from('report_history').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['report-history'] }),
+    onError: (e) => alert(`Не вдалося видалити: ${e.message}`),
+  });
+
+  const ordersById = useMemo(() => {
+    const m = new Map();
+    rawOrders.forEach(o => m.set(String(o.id), o));
+    return m;
+  }, [rawOrders]);
+
+  const openReport = (r) => {
+    if (r.date_from && r.date_to) {
+      setFilterMode('period');
+      setDateFrom(r.date_from);
+      setDateTo(r.date_to);
+    }
+    setSelectedClinic(r.clinic_id || '_all');
+    setSelectedDoctor(r.doctor_name || '_all');
+    setSelectedPaymentStatus('_all');
+    if (r.currency) setReportCurrency(r.currency);
+    setActiveTab('table');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const fmtTotals = (obj) => {
+    const entries = Object.entries(obj || {}).filter(([, v]) => Number(v) > 0);
+    if (!entries.length) return '0 ₴';
+    return entries.map(([c, v]) => `${Math.round(Number(v)).toLocaleString('uk-UA')} ${c === 'UAH' ? '₴' : c === 'USD' ? '$' : c === 'EUR' ? '€' : c}`).join(' + ');
+  };
+
   const handleExcel = () => {
+    saveReportToHistory('excel');
     const curr = reportCurrency === 'ORIGINAL' ? 'UAH' : reportCurrency;
     const data = activeOrders.map((o, idx) => ({
       '№': idx + 1,
@@ -295,6 +394,7 @@ export default function Reports() {
   };
 
   const handleNativeShare = async (type) => {
+    saveReportToHistory(type === 'pdf' ? 'pdf' : 'image');
     try {
       const { default: html2canvas } = await import('html2canvas');
       const { jsPDF } = await import('jspdf');
@@ -543,7 +643,7 @@ export default function Reports() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="bg-white border rounded-3xl shadow-lg overflow-hidden">
-        <TabsList className="bg-slate-50 w-full justify-start border-b px-6 h-14 gap-4"><TabsTrigger value="table" className="text-xs font-black uppercase">Список</TabsTrigger><TabsTrigger value="export" className="text-xs font-black uppercase">Експорт</TabsTrigger></TabsList>
+        <TabsList className="bg-slate-50 w-full justify-start border-b px-6 h-14 gap-4"><TabsTrigger value="table" className="text-xs font-black uppercase">Список</TabsTrigger><TabsTrigger value="export" className="text-xs font-black uppercase">Експорт</TabsTrigger><TabsTrigger value="history" className="text-xs font-black uppercase">Історія звітів{reportHistory.filter(r => r.status !== 'Оплачено').length ? ` (${reportHistory.filter(r => r.status !== 'Оплачено').length})` : ''}</TabsTrigger></TabsList>
         <TabsContent value="table" className="p-0">
           <div className="overflow-x-auto"><table className="w-full text-xs text-left"><thead className="bg-slate-50 font-black text-slate-400 uppercase border-b"><tr><th className="p-5">Дата</th><th className="p-5">Пацієнт</th><th className="p-5 text-right">Сума (${reportCurrency})</th><th className="p-5 text-center">Статус</th></tr></thead><tbody className="divide-y divide-slate-100">
             {activeOrders.map(o => (
@@ -586,6 +686,9 @@ export default function Reports() {
                 <Button onClick={() => handleNativeShare('pdf')} className="h-16 bg-blue-600 hover:bg-blue-700 font-black rounded-2xl shadow-xl active:scale-95 transition-all gap-2 text-lg">
                   <Download className="w-5 h-5" /> ЗБЕРЕГТИ PDF
                 </Button>
+                <Button onClick={() => saveReportToHistory('manual', { silent: false })} variant="outline" className="h-12 font-black rounded-2xl gap-2 border-2">
+                  <Save className="w-4 h-4" /> ЗБЕРЕГТИ В ІСТОРІЮ (без файлу)
+                </Button>
                 <div className="grid grid-cols-2 gap-3">
                   <Button onClick={() => handleNativeShare('image')} variant="outline" className="h-14 font-black rounded-2xl gap-2 border-2"><ImageIcon className="w-4 h-4" /> ЯК ФОТО</Button>
                   <Button onClick={handleExcel} variant="outline" className="h-14 font-black rounded-2xl gap-2 border-2"><FileSpreadsheet className="w-4 h-4" /> EXCEL</Button>
@@ -595,6 +698,67 @@ export default function Reports() {
                 * Використовується шаблон: {templateData?.company_name || 'Стандартний'}
               </p>
            </div>
+        </TabsContent>
+        <TabsContent value="history" className="p-4 md:p-6 space-y-3">
+          <p className="text-xs text-slate-500">
+            Звіт потрапляє сюди автоматично, коли ви зберігаєте PDF, фото чи Excel (або кнопкою «Зберегти в історію»).
+            «Позначити оплаченим» ставить «Оплачено» всім нарядам цього звіту.
+          </p>
+          {historyLoading ? (
+            <div className="py-10 flex justify-center"><RefreshCw className="w-6 h-6 animate-spin text-slate-400" /></div>
+          ) : reportHistory.length === 0 ? (
+            <div className="py-10 text-center text-sm text-slate-400">Ще немає сформованих звітів</div>
+          ) : reportHistory.map(r => {
+            const ids = r.order_ids || [];
+            const stillDebt = ids.filter(id => {
+              const o = ordersById.get(String(id));
+              return o && !isPaidStatus(o.payment_status);
+            }).length;
+            const paid = r.status === 'Оплачено';
+            return (
+              <div key={r.id} className={`rounded-2xl border-2 p-4 space-y-2 ${paid ? 'border-emerald-100 bg-emerald-50/40' : 'border-slate-100 bg-white'}`}>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-black text-slate-800">
+                      {[r.clinic_name, r.doctor_name].filter(Boolean).join(' · ') || 'Всі клініки'}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {r.period_label} · {r.orders_count} нарядів · сформовано {(() => { try { return format(parseISO(r.created_at), 'dd.MM.yyyy HH:mm'); } catch { return ''; } })()}
+                      {r.format ? ` · ${r.format === 'pdf' ? 'PDF' : r.format === 'image' ? 'фото' : r.format === 'excel' ? 'Excel' : 'без файлу'}` : ''}
+                    </p>
+                  </div>
+                  <span className={`px-3 py-1 rounded-lg text-[10px] font-black border-2 ${paid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
+                    {paid ? `ОПЛАЧЕНО${r.paid_at ? ' ' + (() => { try { return format(parseISO(r.paid_at), 'dd.MM.yyyy'); } catch { return ''; } })() : ''}` : 'НЕ ОПЛАЧЕНО'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                  <div><span className="text-slate-400">Роботи: </span><b>{fmtTotals(r.totals?.work)}</b></div>
+                  <div><span className="text-slate-400">Борг на момент звіту: </span><b className="text-rose-600">{fmtTotals(r.totals?.debt)}</b></div>
+                  <div><span className="text-slate-400">Зараз у боргу: </span><b className={stillDebt ? 'text-rose-600' : 'text-emerald-600'}>{stillDebt} з {ids.length} нарядів</b></div>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {(!paid || stillDebt > 0) && (
+                    <Button
+                      size="sm"
+                      className="bg-emerald-600 hover:bg-emerald-700 font-black gap-1.5"
+                      disabled={markReportPaid.isPending || ids.length === 0}
+                      onClick={() => {
+                        if (window.confirm(`Позначити звіт оплаченим?\n\n${[r.clinic_name, r.doctor_name].filter(Boolean).join(' · ')}\n${r.period_label}\n\nУсім ${ids.length} нарядам цього звіту буде поставлено «Оплачено».`)) {
+                          markReportPaid.mutate(r.id);
+                        }
+                      }}
+                    >
+                      <CheckCircle2 className="w-4 h-4" /> Позначити оплаченим
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" className="font-bold" onClick={() => openReport(r)}>Відкрити</Button>
+                  <Button size="sm" variant="ghost" className="text-rose-600 gap-1" onClick={() => { if (window.confirm('Видалити звіт з історії? Наряди не зміняться.')) deleteReport.mutate(r.id); }}>
+                    <Trash2 className="w-3.5 h-3.5" /> Видалити
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
         </TabsContent>
       </Tabs>
     </div>
